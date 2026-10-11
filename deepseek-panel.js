@@ -104,9 +104,8 @@
     ".dsp-rail-btn:hover{background:var(--surface-base-hover,rgba(255,255,255,.07));color:var(--text-strong,#e8e8e8)}",
     ".dsp-rail-btn.dsp-active{color:var(--dsp-accent);background:var(--dsp-accent-soft)}",
     ".dsp-rail-btn .dsp-mark{width:18px;height:18px;display:block;flex:none}",
-    ".dsp-float-btn{position:fixed;left:12px;bottom:12px;z-index:2147483600;display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 12px 0 10px;border-radius:11px;border:1px solid var(--border-base,rgba(255,255,255,.14));background:var(--background-strong,#1b1b1b);cursor:pointer;color:var(--text-strong,#e8e8e8);box-shadow:0 1px 2px rgba(0,0,0,.25)}",
-    ".dsp-float-btn .dsp-mark{width:19px;height:19px;color:var(--dsp-accent)}",
-    ".dsp-float-btn .dsp-title{font-weight:600;display:inline-block}",
+    ".dsp-float-btn{position:fixed;left:10px;bottom:10px;z-index:2147483600;width:34px;height:34px;display:flex;align-items:center;justify-content:center;border-radius:9px;border:1px solid var(--border-base,rgba(255,255,255,.14));background:var(--background-strong,#1b1b1b);cursor:pointer;color:var(--text-strong,#e8e8e8);box-shadow:0 1px 2px rgba(0,0,0,.25)}",
+    ".dsp-float-btn .dsp-mark{width:18px;height:18px;color:var(--dsp-accent)}",
     ".dsp-title,.dsp-dot{display:none}",
     ".dsp-card{position:fixed;z-index:2147483600;display:none;width:" + CARD_MIN_W + "px;max-height:calc(100vh - 120px);border-radius:12px;border:1px solid var(--border-base,rgba(255,255,255,.14));background:var(--background-strong,#1b1b1b);box-shadow:0 2px 4px rgba(0,0,0,.2),0 16px 40px -16px rgba(0,0,0,.6);font-family:var(--font-sans,ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif);font-size:13px;line-height:1.45;color:var(--text-strong,#e8e8e8);overflow:hidden;flex-direction:column}",
     ".dsp-card.dsp-open{display:flex}",
@@ -636,34 +635,47 @@
   }
 
   // ---- launcher mount -----------------------------------------------------
-  var mountedCluster = null;
-  function findRailCluster() {
+  function findRail() {
     var divs = document.querySelectorAll("div");
-    var rail = null;
+    var classed = null, classedH = 0, any = null, anyH = 0;
     for (var i = 0; i < divs.length; i++) {
-      var cls = "" + (divs[i].className || "");
-      if (cls.indexOf("bg-background-base") < 0 || cls.indexOf("flex-col") < 0) continue;
       var r = divs[i].getBoundingClientRect();
-      if (r.left < 6 && r.width >= 56 && r.width <= 76 && r.height > 200) { rail = divs[i]; break; }
+      if (!(r.left < 10 && r.width >= 44 && r.width <= 96 && r.height > 220 && r.top < 140)) continue;
+      if (r.height > anyH) { anyH = r.height; any = divs[i]; }
+      var cls = "" + (divs[i].className || "");
+      if (cls.indexOf("bg-background-base") >= 0 && r.height > classedH) { classedH = r.height; classed = divs[i]; }
     }
-    if (!rail) return null;
-    var kids = rail.querySelectorAll("div");
+    return classed || any;
+  }
+  function bottomCluster(rail) {
+    var marked = rail.querySelector('[class*="pb-6"]');
+    if (marked) return marked;
+    var kids = rail.children, fallback = null;
+    for (var i = kids.length - 1; i >= 0; i--) {
+      var k = kids[i];
+      if (k === launcher || k.tagName !== "DIV") continue;
+      if (!fallback) fallback = k;
+      if (k.querySelector("button") && k.getBoundingClientRect().height < 220) return k;
+    }
     for (var j = kids.length - 1; j >= 0; j--) {
-      var kc = "" + (kids[j].className || "");
-      if (kc.indexOf("pb-6") >= 0 && kc.indexOf("flex-col") >= 0 && kc.indexOf("items-center") >= 0) return kids[j];
+      if (kids[j] !== launcher && kids[j].tagName === "DIV" && kids[j].querySelector("button")) return kids[j];
     }
-    return null;
+    return fallback;
+  }
+  function inRail() {
+    var p = launcher.parentNode;
+    if (!p || p === document.body) return false;
+    var r = p.getBoundingClientRect();
+    return r.left < 12 && r.width <= 92 && r.height > 200;
   }
   function mountLauncher() {
-    var cluster = findRailCluster();
-    if (cluster) {
-      if (launcher.parentNode !== cluster || cluster.firstChild !== launcher) cluster.insertBefore(launcher, cluster.firstChild);
+    if (inRail()) return true;
+    var rail = findRail();
+    if (rail) {
+      var cluster = bottomCluster(rail);
+      if (cluster) { if (launcher.parentNode !== cluster || cluster.firstChild !== launcher) cluster.insertBefore(launcher, cluster.firstChild); }
+      else if (launcher.parentNode !== rail || rail.lastElementChild !== launcher) rail.appendChild(launcher);
       launcher.classList.remove("dsp-float-btn");
-      if (mountedCluster !== cluster) {
-        mountedCluster = cluster;
-        var observer = new MutationObserver(function () { if (launcher.parentNode !== cluster) cluster.insertBefore(launcher, cluster.firstChild); });
-        observer.observe(cluster, { childList: true });
-      }
       return true;
     }
     if (launcher.parentNode !== document.body) { launcher.classList.add("dsp-float-btn"); document.body.appendChild(launcher); }
@@ -677,8 +689,7 @@
     render();
     launcher.addEventListener("click", function () { setOpen(!isOpen()); });
     mountLauncher();
-    var tries = 0;
-    var timer = setInterval(function () { if (mountLauncher() || ++tries > 20) clearInterval(timer); }, 500);
+    setInterval(mountLauncher, 1500);
 
     card.addEventListener("keydown", function (e) { e.stopPropagation(); if (e.key === "Escape") setOpen(false); }, false);
     card.addEventListener("mousedown", function (e) { e.stopPropagation(); }, false);
