@@ -1,0 +1,6 @@
+.playwright-mcp/
+img/
+node_modules/
+*.deepseek-backup
+*.deepseek-new
+*.deepseek-restore

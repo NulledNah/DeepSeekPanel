@@ -1,0 +1,202 @@
+/*
+ * DeepSeek bridge for the OpenCode desktop main process.
+ *
+ * Added to resources/app.asar as out/main/deepseek-main.js and set as the app
+ * entry by apply.js. It imports the original main (out/main/index.js) and then
+ * registers a few IPC handlers:
+ *
+ *   deepseek-status  -> { ok, valid }   token present + still valid
+ *   deepseek-login   -> { ok, token }   opens a DeepSeek sign-in window and
+ *                                       captures the session Bearer token
+ *                                       automatically from its requests
+ *   deepseek-logout  -> { ok }          clears the stored token
+ *   deepseek-usage   -> { ok, summary, amount, cost }
+ *
+ * The login window uses a persistent partition, so the DeepSeek session cookie
+ * survives across launches (usually no re-login). A custom email/password POST
+ * cannot work because the login endpoint is behind an AWS WAF challenge - only
+ * a real browser window can sign in. Usage lives on platform.deepseek.com (no
+ * CORS for oc://renderer), so it is fetched here and handed over via IPC.
+ */
+import { app, BrowserWindow, ipcMain, session, net } from "electron";
+import { readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import "./index.js";
+
+const BASE = "https://platform.deepseek.com";
+const PARTITION = "persist:deepseek-platform";
+const COMMON_HEADERS = { "x-app-version": "20240425.0", accept: "*/*", referer: BASE + "/usage" };
+
+let token = null;
+let pendingLogin = null;
+let captureAttached = false;
+let capturing = false;
+
+function tokenFile() { return join(app.getPath("userData"), "deepseek-session.json"); }
+function loadToken() {
+  if (token) return token;
+  try {
+    const parsed = JSON.parse(readFileSync(tokenFile(), "utf8"));
+    if (parsed && typeof parsed.token === "string") token = parsed.token;
+  } catch (e) { /* no stored token */ }
+  return token;
+}
+function saveToken(value) {
+  token = value;
+  try { writeFileSync(tokenFile(), JSON.stringify({ token: value, at: Date.now() })); } catch (e) { /* ignore */ }
+}
+function clearToken() {
+  token = null;
+  try { writeFileSync(tokenFile(), "{}"); } catch (e) { /* ignore */ }
+}
+
+function dsSession() { return session.fromPartition(PARTITION); }
+
+async function validate(value) {
+  try {
+    const res = await net.fetch(BASE + "/api/v0/users/get_user_summary", {
+      headers: Object.assign({}, COMMON_HEADERS, { authorization: "Bearer " + value })
+    });
+    if (!res.ok) return { ok: false, error: "HTTP " + res.status };
+    const json = await res.json();
+    return json && json.code === 0 ? { ok: true } : { ok: false, error: (json && json.msg) || ("code " + (json && json.code)) };
+  } catch (e) {
+    return { ok: false, error: String((e && e.message) || e) };
+  }
+}
+
+function attachCapture() {
+  if (captureAttached) return;
+  captureAttached = true;
+  dsSession().webRequest.onBeforeSendHeaders({ urls: [BASE + "/*"] }, (details, callback) => {
+    const headers = details.requestHeaders || {};
+    const auth = headers.Authorization || headers.authorization;
+    if (auth && /^Bearer\s+/i.test(auth) && pendingLogin && !capturing) {
+      const value = auth.replace(/^Bearer\s+/i, "").trim();
+      if (value && value !== token) {
+        capturing = true;
+        validate(value).then((check) => {
+          capturing = false;
+          if (check.ok && pendingLogin) pendingLogin(value);
+        }).catch(() => { capturing = false; });
+      }
+    }
+    callback({ requestHeaders: headers });
+  });
+}
+
+async function openLoginWindow() {
+  attachCapture();
+  loadToken();
+  if (token && (await validate(token)).ok) return { ok: true, token };
+
+  return await new Promise((resolve) => {
+    const win = new BrowserWindow({
+      width: 520,
+      height: 720,
+      title: "DeepSeek",
+      autoHideMenuBar: true,
+      backgroundColor: "#131010",
+      webPreferences: { partition: PARTITION, contextIsolation: true, nodeIntegration: false, sandbox: true }
+    });
+    let settled = false;
+    let poll = null;
+    const finish = (result) => { if (settled) return; settled = true; pendingLogin = null; if (poll) clearInterval(poll); resolve(result); };
+    const succeed = (value) => {
+      saveToken(value);
+      finish({ ok: true, token: value });
+      if (!win.isDestroyed()) {
+        win.close();
+        setTimeout(() => { if (!win.isDestroyed()) win.destroy(); }, 400);
+      }
+    };
+    pendingLogin = succeed;
+    win.on("closed", () => finish({ ok: !!loadToken(), token: loadToken() || null }));
+    win.webContents.on("did-fail-load", () => finish({ ok: !!loadToken(), token: loadToken() || null }));
+    win.loadURL(BASE + "/sign_in").catch(() => finish({ ok: false, token: null }));
+    // The platform persists the session token in localStorage["userToken"]
+    // (JSON: {"value":"<token>"}). Reading it is more reliable than sniffing
+    // request headers, especially when the window opens already signed in.
+    poll = setInterval(() => {
+      if (settled || win.isDestroyed()) { if (poll) clearInterval(poll); return; }
+      win.webContents.executeJavaScript('localStorage.getItem("userToken")').then((raw) => {
+        if (!raw) return;
+        let value = raw;
+        try { const parsed = JSON.parse(raw); if (parsed && typeof parsed.value === "string") value = parsed.value; } catch (e) { /* plain string */ }
+        if (settled || typeof value !== "string" || value.length < 20 || value === token) return;
+        validate(value).then((check) => { if (check.ok && !settled) succeed(value); });
+      }).catch(() => {});
+    }, 1500);
+  });
+}
+
+function bizData(json) {
+  if (!json) return null;
+  if (json.data && json.data.biz_data) return json.data.biz_data;
+  return json.data || json;
+}
+
+async function dsGet(path) {
+  const current = loadToken();
+  if (!current) throw new Error("not_authenticated");
+  const res = await net.fetch(BASE + path, { headers: Object.assign({}, COMMON_HEADERS, { authorization: "Bearer " + current }) });
+  if (!res.ok) throw new Error("HTTP " + res.status);
+  const text = await res.text();
+  if (!text) return null;
+  try { return JSON.parse(text); } catch (e) { return null; }
+}
+
+async function dsGetKeys() {
+  try {
+    const data = bizData(await dsGet("/api/v0/users/get_api_keys"));
+    return (data && data.api_keys) || [];
+  } catch (e) { return []; }
+}
+
+ipcMain.handle("deepseek-status", async () => {
+  loadToken();
+  if (!token) return { ok: false, valid: false };
+  const check = await validate(token);
+  return check.ok ? { ok: true, valid: true } : { ok: false, valid: false };
+});
+
+ipcMain.handle("deepseek-login", async () => openLoginWindow());
+
+ipcMain.handle("deepseek-logout", async () => {
+  clearToken();
+  try { await dsSession().clearStorageData(); } catch (e) { /* ignore */ }
+  try { await dsSession().clearCache(); } catch (e) { /* ignore */ }
+  return { ok: true };
+});
+
+function usageReady(summary) {
+  const data = bizData(summary);
+  return !!(data && (data.normal_wallets || []).length);
+}
+
+async function waitSummary(deadline) {
+  let summary = null;
+  for (;;) {
+    try { summary = await dsGet("/api/v0/users/get_user_summary"); } catch (e) { summary = null; }
+    if (usageReady(summary)) return summary;
+    if (Date.now() >= deadline) return summary;
+    await new Promise((r) => setTimeout(r, 1200));
+  }
+}
+
+ipcMain.handle("deepseek-usage", async (_event, params) => {
+  const p = params || {};
+  if (p.start == null || p.end == null || p.tz == null) return { ok: false, error: "bad_params" };
+  const query = "?start=" + encodeURIComponent(p.start) + "&end=" + encodeURIComponent(p.end) + "&tz=" + encodeURIComponent(p.tz);
+  try {
+    // Right after login the API can answer with empty payloads for a moment;
+    // wait until the account summary is actually populated.
+    const summary = await waitSummary(Date.now() + 15000);
+    const amount = await dsGet("/api/v0/usage/by_api_key/amount" + query).catch(() => null);
+    const cost = await dsGet("/api/v0/usage/by_api_key/cost" + query).catch(() => null);
+    const keys = await dsGetKeys();
+    return { ok: true, summary, amount, cost, keys };
+  } catch (e) {
+    return { ok: false, error: String((e && e.message) || e) };
+  }
+});
