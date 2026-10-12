@@ -8,6 +8,8 @@ It works by patching the packaged `app.asar` (append-only and reversible). Data
 comes from the DeepSeek Platform account session, captured automatically when you
 log in from the integrated window.
 
+Recommended release: **v1.0.9** (stable).
+
 ## Features
 
 - DeepSeek login in an integrated window; the session is captured automatically.
