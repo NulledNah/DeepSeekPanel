@@ -123,6 +123,46 @@
   };
   var currencySymbol = { USD: "$", CNY: "\u00a5" };
 
+  var LS_STATE = "deepseek.panel.state";
+  var REFRESH_TTL = 60000;
+  function saveState() {
+    if (!state.summary) return;
+    try {
+      store.set(LS_STATE, JSON.stringify({
+        at: state.dataAt || Date.now(),
+        filter: state.loadedFilter || state.filter,
+        summary: state.summary, amount: state.amount, cost: state.cost, keys: state.keys,
+        metric: state.metric, chartMode: state.chartMode, chartModel: state.chartModel
+      }));
+    } catch (e) { /* ignore */ }
+  }
+  function loadPersisted() {
+    var raw = store.get(LS_STATE);
+    if (!raw) return false;
+    try {
+      var s = JSON.parse(raw);
+      if (!s || !s.summary) return false;
+      state.summary = s.summary;
+      state.amount = s.amount || null;
+      state.cost = s.cost || null;
+      state.keys = s.keys || [];
+      if (s.filter) {
+        state.filter.preset = s.filter.preset || "thisMonth";
+        state.filter.apiKey = s.filter.apiKey || "all";
+        state.filter.start = s.filter.start != null ? s.filter.start : null;
+        state.filter.end = s.filter.end != null ? s.filter.end : null;
+      }
+      state.loadedFilter = { preset: state.filter.preset, apiKey: state.filter.apiKey, start: state.filter.start, end: state.filter.end };
+      if (s.metric) state.metric = s.metric;
+      if (s.chartMode) state.chartMode = s.chartMode;
+      if (s.chartModel) state.chartModel = s.chartModel;
+      state.dataAt = s.at || 0;
+      state.view = "dashboard";
+      state.loggedIn = true;
+      return true;
+    } catch (e) { return false; }
+  }
+
   function el(tag, props, children) {
     var node = document.createElement(tag);
     if (props) {
@@ -357,7 +397,9 @@
     chartModel: "all",
     status: null,
     reqId: 0,
-    usageCache: {}
+    usageCache: {},
+    dataAt: 0,
+    loadedFilter: null
   };
 
   function isOpen() { return card.classList.contains("dsp-open"); }
@@ -484,33 +526,48 @@
 
   // ---- flows --------------------------------------------------------------
   function start() {
-    state.view = "checking";
+    var haveData = !!state.summary;
+    // Never replace already-shown data with a loading screen.
+    state.view = haveData ? "dashboard" : "checking";
     render();
     dsStatus().then(function (res) {
       state.status = res || {};
-      if (res && res.ok && res.valid) { state.loggedIn = true; loadUsage(); return; }
+      if (res && res.ok && res.valid) {
+        state.loggedIn = true;
+        var fresh = haveData && state.dataAt && (Date.now() - state.dataAt) < REFRESH_TTL;
+        if (fresh) { render(); return; }
+        loadUsage(false); // refresh, quietly, keeping the current data on screen
+        return;
+      }
       state.loggedIn = false;
-      if (!state.restoreTried) {
+      if (!state.restoreTried && !haveData) {
         state.restoreTried = true;
         dsRestore().then(function (r) {
-          if (r && r.ok && r.token) loadUsage();
+          if (r && r.ok && r.token) loadUsage(false);
           else { state.view = "login"; render(); }
         }).catch(function () { state.view = "login"; render(); });
-      } else {
+      } else if (!haveData) {
         state.view = "login"; render();
       }
-    }).catch(function () { state.loggedIn = false; state.view = "login"; render(); });
+      // With cached data but no valid session, keep showing it; the next
+      // action will surface the login screen if needed.
+    }).catch(function () {
+      if (!state.summary) { state.loggedIn = false; state.view = "login"; render(); }
+    });
   }
 
   function doLogin() {
-    state.usageCache = {}; state.keys = [];
+    state.usageCache = {}; state.keys = []; state.summary = state.amount = state.cost = null; state.dataAt = 0;
+    try { store.del(LS_STATE); } catch (e) { /* ignore */ }
     state.view = "logging"; state.error = ""; render();
     dsLogin().catch(function () {}).then(function () { start(); });
   }
 
   function doLogout() {
     state.loggedIn = false; state.confirmLogout = false; state.usageCache = {}; state.keys = [];
-    dsLogout().then(function () { state.summary = state.amount = state.cost = null; state.view = "login"; render(); });
+    state.summary = state.amount = state.cost = null; state.dataAt = 0; state.loadedFilter = null;
+    try { store.del(LS_STATE); } catch (e) { /* ignore */ }
+    dsLogout().then(function () { state.view = "login"; render(); });
   }
 
   function resetFilters() {
@@ -657,9 +714,12 @@
     var whole = 3600 * Math.floor(tz / 3600), rem = tz - whole;
     var params = { start: range.start + rem, end: range.end + rem, tz: whole };
     var key = state.filter.preset + ":" + state.filter.apiKey + ":" + params.start + ":" + params.end;
+    var snapshot = { preset: state.filter.preset, apiKey: state.filter.apiKey, start: state.filter.start, end: state.filter.end };
     var cached = state.usageCache[key];
-    if (!force && cached && Date.now() - cached.at < 30000) {
+    if (!force && cached && Date.now() - cached.at < REFRESH_TTL) {
       applyUsage(cached.data);
+      state.dataAt = cached.at;
+      state.loadedFilter = snapshot;
       state.loggedIn = true;
       state.view = "dashboard";
       render();
@@ -683,6 +743,8 @@
       }
       state.loggedIn = true;
       applyUsage(res);
+      state.dataAt = Date.now();
+      state.loadedFilter = snapshot;
       state.usageCache[key] = { at: Date.now(), data: res };
       state.view = "dashboard";
       render();
@@ -1041,6 +1103,7 @@
     card.appendChild(scroll);
     if (state.confirmLogout) card.appendChild(confirmModal());
     if (state.timePicker) card.appendChild(timePickerModal());
+    if (state.summary) saveState();
     updateDot();
   }
 
@@ -1096,6 +1159,7 @@
     if (document.getElementById("deepseek-panel-card")) return;
     injectStyles();
     document.body.appendChild(card);
+    loadPersisted();
     render();
     launcher.addEventListener("click", function () { setOpen(!isOpen()); });
     mountLauncher();

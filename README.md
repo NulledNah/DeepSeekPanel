@@ -62,6 +62,8 @@ Restores the original `app.asar` from the backup created during install
 - After the first login the session is remembered across restarts: the DeepSeek
   cookies are persisted on disk (with a file backup as a fallback), so you
   normally do not need to log in again.
+- The panel shows the last loaded data immediately on open and refreshes in the
+  background only when it is older than about a minute (avoids rate limiting).
 
 ## Files
 
