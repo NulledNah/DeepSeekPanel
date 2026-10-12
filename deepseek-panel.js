@@ -66,7 +66,11 @@
       preset_30d: "Last 30 days",
       preset_thisMonth: "This month",
       preset_lastMonth: "Last month",
-      preset_custom: "Custom"
+      preset_custom: "Custom",
+      mode_metric: "Cost / Tokens",
+      mode_requests: "API requests",
+      all_models: "All models",
+      chart_requests: "API requests"
     },
     it: {
       login_title: "Accedi a DeepSeek",
@@ -98,7 +102,11 @@
       preset_30d: "Ultimi 30 giorni",
       preset_thisMonth: "Questo mese",
       preset_lastMonth: "Mese scorso",
-      preset_custom: "Personalizzato"
+      preset_custom: "Personalizzato",
+      mode_metric: "Costo / Token",
+      mode_requests: "Richieste API",
+      all_models: "Tutti i modelli",
+      chart_requests: "Richieste API"
     }
   };
   function t(key) {
@@ -266,14 +274,21 @@
     ".dsp-menu-item .dsp-sub{color:var(--text-weak,#9a9a9a);font-size:11px}",
     ".dsp-sep{height:1px;background:var(--border-weak-base,rgba(255,255,255,.08));margin:5px 0}",
     ".dsp-chart{border:1px solid var(--border-weak-base,rgba(255,255,255,.08));border-radius:10px;background:var(--surface-base,rgba(255,255,255,.03));padding:12px 12px 8px}",
-    ".dsp-chart-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}",
+    ".dsp-chart-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}",
+    ".dsp-chart-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}",
+    ".dsp-chartgroup{display:flex;flex-direction:column}",
+    ".dsp-charts{display:grid;gap:10px}",
+    ".dsp-charts-2{grid-template-columns:1fr 1fr}",
+    ".dsp-legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px;font-size:11px;color:var(--text-weak,#9a9a9a)}",
+    ".dsp-legend-item{display:inline-flex;align-items:center;gap:4px}",
+    ".dsp-legend-dot{width:9px;height:9px;border-radius:2px;display:inline-block}",
     ".dsp-seg{display:inline-flex;border:1px solid var(--border-base,rgba(255,255,255,.16));border-radius:8px;overflow:hidden}",
     ".dsp-seg button{border:0;background:transparent;padding:4px 10px;cursor:pointer;font-size:12px;color:var(--text-weak,#9a9a9a)}",
     ".dsp-seg button.dsp-on{background:var(--surface-base-active,rgba(255,255,255,.1));color:var(--text-strong,#e8e8e8)}",
     ".dsp-maxlabel{color:var(--text-weak,#9a9a9a);font-size:10px;margin-bottom:2px}",
     ".dsp-plot{display:flex;align-items:flex-end;gap:3px;height:150px;border-top:1px solid var(--border-weak-base,rgba(255,255,255,.10));padding-top:2px}",
-    ".dsp-col{flex:1;height:100%;display:flex;align-items:flex-end;justify-content:center}",
-    ".dsp-barfill{width:100%;max-width:26px;background:var(--dsp-accent);border-radius:2px}",
+    ".dsp-col{flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center}",
+    ".dsp-seg-bar{width:100%;max-width:26px;border-radius:1px}",
     ".dsp-xrow{display:flex;justify-content:space-between;color:var(--text-weak,#9a9a9a);font-size:10px;margin-top:4px}",
     ".dsp-empty{color:var(--text-weak,#9a9a9a);padding:24px 4px;text-align:center}",
     ".dsp-foot{display:flex;gap:8px;margin-top:12px}",
@@ -329,6 +344,8 @@
     keys: [],
     filter: { preset: "thisMonth", apiKey: "all", start: null, end: null },
     metric: "cost",
+    chartMode: "metric",
+    chartModel: "all",
     status: null,
     reqId: 0,
     usageCache: {}
@@ -402,16 +419,25 @@
     var tokens = 0, requests = 0;
     var costByDay = {}, tokenByDay = {};
     var currency = "USD";
+    var byModel = {};
+    function modelBucket(name) {
+      if (!byModel[name]) byModel[name] = { cost: {}, token: {}, req: {} };
+      return byModel[name];
+    }
+    function add(map, d, v) { map[d] = (map[d] || 0) + v; }
 
     (amount.series || []).forEach(function (ser) {
       var id = keyId(ser);
       if (id) keysMap[id] = keyLabel(ser);
       if (filter !== "all" && id !== filter) return;
+      var mb = modelBucket(ser.model || "unknown");
       (ser.buckets || []).forEach(function (b) {
         var u = b.usage || {};
-        var t = toInt(u.PROMPT_CACHE_HIT_TOKEN) + toInt(u.PROMPT_CACHE_MISS_TOKEN) + toInt(u.RESPONSE_TOKEN);
-        tokens += t; requests += toInt(u.REQUEST);
-        var d = dayKey(b.time); tokenByDay[d] = (tokenByDay[d] || 0) + t;
+        var tk = toInt(u.PROMPT_CACHE_HIT_TOKEN) + toInt(u.PROMPT_CACHE_MISS_TOKEN) + toInt(u.RESPONSE_TOKEN);
+        var rq = toInt(u.REQUEST);
+        tokens += tk; requests += rq;
+        var d = dayKey(b.time);
+        add(tokenByDay, d, tk); add(mb.token, d, tk); add(mb.req, d, rq);
       });
     });
 
@@ -422,15 +448,18 @@
       (cur.series || []).forEach(function (ser) {
         var id = keyId(ser); if (id) keysMap[id] = keyLabel(ser);
         if (filter !== "all" && id !== filter) return;
+        var mb = modelBucket(ser.model || "unknown");
         (ser.buckets || []).forEach(function (b) {
           var v = parseFloat(b.cost || 0); totalCost += v;
-          var d = dayKey(b.time); costByDay[d] = (costByDay[d] || 0) + v;
+          var d = dayKey(b.time);
+          add(costByDay, d, v); add(mb.cost, d, v);
         });
       });
     });
 
     var keys = Object.keys(keysMap).map(function (id) { return { id: id, name: keysMap[id] }; });
-    return { tokens: tokens, requests: requests, cost: totalCost, currency: currency, costByDay: costByDay, tokenByDay: tokenByDay, keys: keys };
+    var models = Object.keys(byModel).sort();
+    return { tokens: tokens, requests: requests, cost: totalCost, currency: currency, costByDay: costByDay, tokenByDay: tokenByDay, byModel: byModel, models: models, keys: keys };
   }
 
   function summaryValues() {
@@ -688,26 +717,56 @@
   }
 
   // ---- chart (HTML bars: crisp text, no SVG scaling) ----------------------
-  function buildChart(byDay, metric) {
-    var keys = Object.keys(byDay).sort();
+  var MODEL_COLORS = ["#4d6bfe", "#f59e0b", "#22c55e", "#ef4444", "#a855f7", "#06b6d4", "#e879f9", "#84cc16"];
+
+  function sumMap(map) {
+    var s = 0;
+    for (var k in map) s += (map[k] || 0);
+    return s;
+  }
+
+  // seriesDefs: [{ label, color, byDay }]. Bars for each day are stacked.
+  function renderChart(seriesDefs, unit) {
+    var daySet = {};
+    seriesDefs.forEach(function (s) { for (var d in s.byDay) daySet[d] = true; });
+    var keys = Object.keys(daySet).sort();
     if (!keys.length) return el("div", { class: "dsp-empty", text: t("no_data") });
     var max = 0;
-    keys.forEach(function (k) { if (byDay[k] > max) max = byDay[k]; });
+    keys.forEach(function (d) {
+      var sum = 0;
+      seriesDefs.forEach(function (s) { sum += (s.byDay[d] || 0); });
+      if (sum > max) max = sum;
+    });
     if (max <= 0) return el("div", { class: "dsp-empty", text: t("no_data") });
     var plot = el("div", { class: "dsp-plot" });
-    keys.forEach(function (k) {
-      var v = byDay[k];
-      var tip = k + ": " + (metric === "cost" ? "$" + v.toFixed(2) : fmtInt(v));
-      var fill = el("div", { class: "dsp-barfill", title: tip });
-      fill.style.height = Math.max(2, (v / max) * 100) + "%";
-      plot.appendChild(el("div", { class: "dsp-col" }, [fill]));
+    keys.forEach(function (d) {
+      var col = el("div", { class: "dsp-col" });
+      seriesDefs.forEach(function (s) {
+        var v = s.byDay[d] || 0;
+        if (v <= 0) return;
+        var seg = el("div", { class: "dsp-seg-bar", title: s.label + " - " + d + ": " + unit(v) });
+        seg.style.height = (v / max) * 100 + "%";
+        seg.style.background = s.color;
+        col.appendChild(seg);
+      });
+      plot.appendChild(col);
     });
-    var maxLabel = el("div", { class: "dsp-maxlabel", text: metric === "cost" ? "$" + max.toFixed(2) : fmtInt(max) });
+    var maxLabel = el("div", { class: "dsp-maxlabel", text: unit(max) });
     var xrow = el("div", { class: "dsp-xrow" }, [
       el("span", { text: keys[0] }),
       keys.length > 1 ? el("span", { text: keys[keys.length - 1] }) : null
     ]);
     return el("div", {}, [maxLabel, plot, xrow]);
+  }
+
+  function chartLegend(seriesDefs) {
+    if (seriesDefs.length < 2) return null;
+    return el("div", { class: "dsp-legend" }, seriesDefs.map(function (s) {
+      return el("span", { class: "dsp-legend-item" }, [
+        el("span", { class: "dsp-legend-dot", style: "background:" + s.color }),
+        el("span", { text: s.label })
+      ]);
+    }));
   }
 
   // ---- views --------------------------------------------------------------
@@ -820,17 +879,54 @@
       ])
     ]);
 
-    var chartTitle = state.metric === "cost" ? t("cost") + " (" + m.currency + ")" : t("tokens");
-    var seg = el("div", { class: "dsp-seg" }, [
+    var modeSeg = el("div", { class: "dsp-seg" }, [
+      el("button", { class: state.chartMode === "metric" ? "dsp-on" : "", type: "button", text: t("mode_metric"), on: { click: function () { state.chartMode = "metric"; render(); } } }),
+      el("button", { class: state.chartMode === "requests" ? "dsp-on" : "", type: "button", text: t("mode_requests"), on: { click: function () { state.chartMode = "requests"; render(); } } })
+    ]);
+    var modelOptions = [{ id: "all", label: t("all_models") }].concat(m.models.map(function (mm) { return { id: mm, label: mm }; }));
+    var modelDrop = dropdown(t("all_models"), modelOptions, state.chartModel, function (id) { state.chartModel = id; render(); });
+    var metricSeg = (state.chartMode === "metric" && state.chartModel === "all") ? el("div", { class: "dsp-seg" }, [
       el("button", { class: state.metric === "cost" ? "dsp-on" : "", type: "button", text: t("cost"), on: { click: function () { state.metric = "cost"; render(); } } }),
       el("button", { class: state.metric === "token" ? "dsp-on" : "", type: "button", text: t("tokens"), on: { click: function () { state.metric = "token"; render(); } } })
-    ]);
-    var chart = el("div", { class: "dsp-chart" }, [
+    ]) : null;
+
+    var unitCost = function (v) { return "$" + v.toFixed(2); };
+    var chartBody, titleText;
+    if (state.chartModel !== "all" && m.byModel[state.chartModel]) {
+      // Double chart (at most two): API requests and tokens for the model.
+      var bm = m.byModel[state.chartModel];
+      titleText = state.chartModel;
+      chartBody = el("div", { class: "dsp-charts dsp-charts-2" }, [
+        el("div", { class: "dsp-chart" }, [
+          el("div", { class: "dsp-chart-head" }, [el("div", { class: "dsp-muted", text: t("chart_requests") }), el("div", { class: "dsp-muted", text: fmtInt(sumMap(bm.req)) })]),
+          renderChart([{ label: t("chart_requests"), color: MODEL_COLORS[0], byDay: bm.req }], fmtInt)
+        ]),
+        el("div", { class: "dsp-chart" }, [
+          el("div", { class: "dsp-chart-head" }, [el("div", { class: "dsp-muted", text: t("tokens") }), el("div", { class: "dsp-muted", text: fmtInt(sumMap(bm.token)) })]),
+          renderChart([{ label: t("tokens"), color: MODEL_COLORS[0], byDay: bm.token }], fmtInt)
+        ])
+      ]);
+    } else {
+      var field = state.metric === "cost" ? "cost" : "token";
+      var series = [];
+      var fieldOf = state.chartMode === "requests" ? "req" : field;
+      if (state.chartModel === "all") {
+        m.models.forEach(function (mm, i) { series.push({ label: mm, color: MODEL_COLORS[i % MODEL_COLORS.length], byDay: m.byModel[mm][fieldOf] }); });
+      } else {
+        series.push({ label: state.chartModel, color: MODEL_COLORS[0], byDay: ((m.byModel[state.chartModel] || {})[fieldOf]) || {} });
+      }
+      var unit = state.chartMode === "requests" ? fmtInt : (state.metric === "cost" ? unitCost : fmtInt);
+      titleText = state.chartMode === "requests" ? t("chart_requests") : (state.metric === "cost" ? t("cost") + " (" + m.currency + ")" : t("tokens"));
+      chartBody = el("div", { class: "dsp-charts" }, [
+        el("div", { class: "dsp-chart" }, [renderChart(series, unit), chartLegend(series)])
+      ]);
+    }
+    var chart = el("div", { class: "dsp-chartgroup" }, [
       el("div", { class: "dsp-chart-head" }, [
-        el("div", { class: "dsp-muted", text: chartTitle }),
-        seg
+        el("div", { class: "dsp-muted", text: titleText }),
+        el("div", { class: "dsp-chart-controls" }, [modeSeg, modelDrop, metricSeg])
       ]),
-      buildChart(state.metric === "cost" ? m.costByDay : m.tokenByDay, state.metric)
+      chartBody
     ]);
 
     var dashBtn = el("button", { class: "dsp-ghost", type: "button", on: { click: function () { if (window.api && window.api.openLink) window.api.openLink(DASHBOARD_URL); else window.open(DASHBOARD_URL, "_blank"); } } });

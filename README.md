@@ -15,6 +15,9 @@ log in from the integrated window.
 - Daily cost or token chart (Cost / Token toggle).
 - Time range filter (today, yesterday, 7/30 days, this month, last month, custom)
   with a calendar range picker, plus an API key filter.
+- Daily chart with a metric selector (cost / tokens) and an API requests mode,
+  plus a model selector: stacked per-model bars, or a two chart view (API
+  requests and tokens) when a single model is selected.
 - Status dot on the launcher: green above 1, yellow between 0.50 and 1, red below
   0.50, black at 0, hidden when not logged in.
 - Follows the system / OpenCode language (English fallback).
