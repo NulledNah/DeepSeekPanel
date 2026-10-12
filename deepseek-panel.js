@@ -239,7 +239,7 @@
     ".dsp-ghost:disabled{opacity:.5;cursor:default}",
     ".dsp-icon-btn{border:0;background:transparent;width:26px;height:26px;border-radius:8px;cursor:pointer;color:var(--text-weak,#8f8f8f);font-size:12px;display:flex;align-items:center;justify-content:center;padding:0}",
     ".dsp-icon-btn:hover{background:var(--surface-base-hover,rgba(255,255,255,.08));color:var(--text-strong,#e8e8e8)}",
-    ".dsp-scroll{overflow:auto;flex:1}",
+    ".dsp-scroll{overflow-y:auto;overflow-x:hidden;flex:1;min-width:0}",
     ".dsp-body{padding:14px}",
     ".dsp-login{display:flex;flex-direction:column;gap:12px;max-width:360px;margin:0 auto;text-align:center}",
     ".dsp-login .dsp-mark{width:44px;height:44px;margin:6px auto 0;display:block;color:var(--dsp-accent)}",
@@ -266,11 +266,12 @@
     ".dsp-drop-btn{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 10px;border-radius:9px;border:1px solid var(--border-base,rgba(255,255,255,.16));background:transparent;color:var(--text-strong,#e8e8e8);cursor:pointer;font-size:12px}",
     ".dsp-drop-btn:hover{background:var(--surface-base-hover,rgba(255,255,255,.07))}",
     ".dsp-drop-btn .dsp-caret{color:var(--text-weak,#9a9a9a);font-size:10px}",
-    ".dsp-menu{position:absolute;top:38px;left:0;min-width:190px;max-height:280px;overflow:auto;border:1px solid var(--border-base,rgba(255,255,255,.16));border-radius:10px;background:var(--background-strong,#1b1b1b);box-shadow:0 12px 32px -10px rgba(0,0,0,.6);z-index:5;padding:5px;display:none}",
+    ".dsp-menu{position:absolute;top:38px;left:0;min-width:190px;max-width:min(320px,78vw);max-height:280px;overflow:auto;border:1px solid var(--border-base,rgba(255,255,255,.16));border-radius:10px;background:var(--background-strong,#1b1b1b);box-shadow:0 12px 32px -10px rgba(0,0,0,.6);z-index:5;padding:5px;display:none}",
     ".dsp-menu.dsp-menu-open{display:block}",
-    ".dsp-menu-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:7px 9px;border-radius:7px;cursor:pointer;white-space:nowrap}",
+    ".dsp-menu-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:7px 9px;border-radius:7px;cursor:pointer;white-space:nowrap;min-width:0}",
     ".dsp-menu-item:hover{background:var(--surface-base-hover,rgba(255,255,255,.08))}",
-    ".dsp-menu-item .dsp-check{color:var(--dsp-accent)}",
+    ".dsp-menu-item .dsp-check{color:var(--dsp-accent);flex:none}",
+    ".dsp-menu-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}",
     ".dsp-menu-item .dsp-sub{color:var(--text-weak,#9a9a9a);font-size:11px}",
     ".dsp-sep{height:1px;background:var(--border-weak-base,rgba(255,255,255,.08));margin:5px 0}",
     ".dsp-chart{border:1px solid var(--border-weak-base,rgba(255,255,255,.08));border-radius:10px;background:var(--surface-base,rgba(255,255,255,.03));padding:12px 12px 8px}",
@@ -282,6 +283,14 @@
     ".dsp-legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px;font-size:11px;color:var(--text-weak,#9a9a9a)}",
     ".dsp-legend-item{display:inline-flex;align-items:center;gap:4px}",
     ".dsp-legend-dot{width:9px;height:9px;border-radius:2px;display:inline-block}",
+    ".dsp-area{position:relative;height:150px}",
+    ".dsp-area-svg{position:absolute;inset:0;width:100%;height:100%}",
+    ".dsp-area-fill{fill:var(--dsp-accent);opacity:.35}",
+    ".dsp-area-line{fill:none;stroke:var(--dsp-accent);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}",
+    ".dsp-area-hoverline{position:absolute;top:0;bottom:0;width:0;border-left:1px dashed var(--border-hover,rgba(255,255,255,.35));display:none}",
+    ".dsp-tooltip{position:absolute;top:2px;background:var(--surface-float-base,#232323);border:1px solid var(--border-base,rgba(255,255,255,.16));border-radius:8px;padding:6px 9px;font-size:11px;white-space:nowrap;pointer-events:none;z-index:3;box-shadow:0 4px 14px rgba(0,0,0,.45)}",
+    ".dsp-tooltip-k{color:var(--text-weak,#9a9a9a)}",
+    ".dsp-tooltip-v{font-weight:600}",
     ".dsp-seg{display:inline-flex;border:1px solid var(--border-base,rgba(255,255,255,.16));border-radius:8px;overflow:hidden}",
     ".dsp-seg button{border:0;background:transparent;padding:4px 10px;cursor:pointer;font-size:12px;color:var(--text-weak,#9a9a9a)}",
     ".dsp-seg button.dsp-on{background:var(--surface-base-active,rgba(255,255,255,.1));color:var(--text-strong,#e8e8e8)}",
@@ -692,19 +701,20 @@
   }
 
   // ---- dropdown -----------------------------------------------------------
-  function dropdown(label, options, selected, onSelect) {
+  function dropdown(label, options, selected, onSelect, alignRight) {
     var menu = el("div", { class: "dsp-menu" });
+    if (alignRight) { menu.style.left = "auto"; menu.style.right = "0"; }
     var btn = el("button", { class: "dsp-drop-btn", type: "button", on: { click: function (e) { e.stopPropagation(); closeAllMenus(); menu.classList.toggle("dsp-menu-open"); } } });
     var sel = null;
     for (var i = 0; i < options.length; i++) if (options[i].id === selected) sel = options[i];
-    btn.appendChild(el("span", { text: sel ? sel.label : (label || "Seleziona") }));
+    btn.appendChild(el("span", { class: "dsp-menu-label", text: sel ? sel.label : (label || "Seleziona") }));
     btn.appendChild(el("span", { class: "dsp-caret", html: "&#9662;" }));
     options.forEach(function (opt) {
       menu.appendChild(el("div", {
         class: "dsp-menu-item",
         on: { click: function (e) { e.stopPropagation(); closeAllMenus(); onSelect(opt.id); } }
       }, [
-        el("span", {}, [el("span", { text: opt.label }), opt.sub ? el("span", { class: "dsp-sub", text: "  " + opt.sub }) : null]),
+        el("span", { class: "dsp-menu-label" }, [el("span", { text: opt.label }), opt.sub ? el("span", { class: "dsp-sub", text: "  " + opt.sub }) : null]),
         opt.id === selected ? el("span", { class: "dsp-check", html: "&#10003;" }) : null
       ]));
     });
@@ -767,6 +777,75 @@
         el("span", { text: s.label })
       ]);
     }));
+  }
+
+  function smoothPath(pts) {
+    if (!pts.length) return "";
+    if (pts.length === 1) return "M " + pts[0][0] + " " + pts[0][1];
+    var d = "M " + pts[0][0].toFixed(2) + " " + pts[0][1].toFixed(2);
+    for (var i = 0; i < pts.length - 1; i++) {
+      var p0 = pts[i - 1] || pts[i];
+      var p1 = pts[i];
+      var p2 = pts[i + 1];
+      var p3 = pts[i + 2] || p2;
+      var c1x = p1[0] + (p2[0] - p0[0]) / 6, c1y = p1[1] + (p2[1] - p0[1]) / 6;
+      var c2x = p2[0] - (p3[0] - p1[0]) / 6, c2y = p2[1] - (p3[1] - p1[1]) / 6;
+      d += " C " + c1x.toFixed(2) + " " + c1y.toFixed(2) + " " + c2x.toFixed(2) + " " + c2y.toFixed(2) + " " + p2[0].toFixed(2) + " " + p2[1].toFixed(2);
+    }
+    return d;
+  }
+
+  // Smooth filled area chart (used for API requests).
+  function areaChart(byDay, unit) {
+    var keys = Object.keys(byDay).sort();
+    if (!keys.length) return el("div", { class: "dsp-empty", text: t("no_data") });
+    var max = 0;
+    keys.forEach(function (k) { if (byDay[k] > max) max = byDay[k]; });
+    if (max <= 0) return el("div", { class: "dsp-empty", text: t("no_data") });
+    var n = keys.length;
+    var pts = keys.map(function (k, i) {
+      var x = n === 1 ? 50 : (i / (n - 1)) * 100;
+      var y = 100 - (byDay[k] / max) * 94 - 3;
+      return [x, Math.max(2, y)];
+    });
+    var ns = "http://www.w3.org/2000/svg";
+    var svg = document.createElementNS(ns, "svg");
+    svg.setAttribute("class", "dsp-area-svg");
+    svg.setAttribute("viewBox", "0 0 100 100");
+    svg.setAttribute("preserveAspectRatio", "none");
+    var line = smoothPath(pts);
+    var area = line + " L " + pts[n - 1][0].toFixed(2) + " 100 L " + pts[0][0].toFixed(2) + " 100 Z";
+    var fill = document.createElementNS(ns, "path");
+    fill.setAttribute("d", area); fill.setAttribute("class", "dsp-area-fill");
+    var stroke = document.createElementNS(ns, "path");
+    stroke.setAttribute("d", line); stroke.setAttribute("class", "dsp-area-line");
+    stroke.setAttribute("vector-effect", "non-scaling-stroke");
+    svg.appendChild(fill); svg.appendChild(stroke);
+
+    var hoverLine = el("div", { class: "dsp-area-hoverline" });
+    var tip = el("div", { class: "dsp-tooltip" });
+    tip.style.display = "none";
+    var plot = el("div", { class: "dsp-area" }, [svg, hoverLine, tip]);
+    plot.addEventListener("mousemove", function (e) {
+      var r = plot.getBoundingClientRect();
+      if (!r.width) return;
+      var rel = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+      var idx = n === 1 ? 0 : Math.round(rel * (n - 1));
+      var k = keys[idx];
+      var xPct = n === 1 ? 50 : (idx / (n - 1)) * 100;
+      hoverLine.style.display = "block";
+      hoverLine.style.left = xPct + "%";
+      tip.style.display = "block";
+      tip.style.left = Math.min(70, Math.max(2, xPct - 12)) + "%";
+      tip.textContent = "";
+      tip.appendChild(el("div", { class: "dsp-tooltip-k", text: k }));
+      tip.appendChild(el("div", { class: "dsp-tooltip-v", text: unit(byDay[k]) }));
+    });
+    plot.addEventListener("mouseleave", function () { hoverLine.style.display = "none"; tip.style.display = "none"; });
+
+    var maxLabel = el("div", { class: "dsp-maxlabel", text: unit(max) });
+    var xrow = el("div", { class: "dsp-xrow" }, [el("span", { text: keys[0] }), n > 1 ? el("span", { text: keys[n - 1] }) : null]);
+    return el("div", {}, [maxLabel, plot, xrow]);
   }
 
   // ---- views --------------------------------------------------------------
@@ -879,12 +958,12 @@
       ])
     ]);
 
-    var modeSeg = el("div", { class: "dsp-seg" }, [
+    var modeSeg = (state.chartModel === "all") ? el("div", { class: "dsp-seg" }, [
       el("button", { class: state.chartMode === "metric" ? "dsp-on" : "", type: "button", text: t("mode_metric"), on: { click: function () { state.chartMode = "metric"; render(); } } }),
       el("button", { class: state.chartMode === "requests" ? "dsp-on" : "", type: "button", text: t("mode_requests"), on: { click: function () { state.chartMode = "requests"; render(); } } })
-    ]);
+    ]) : null;
     var modelOptions = [{ id: "all", label: t("all_models") }].concat(m.models.map(function (mm) { return { id: mm, label: mm }; }));
-    var modelDrop = dropdown(t("all_models"), modelOptions, state.chartModel, function (id) { state.chartModel = id; render(); });
+    var modelDrop = dropdown(t("all_models"), modelOptions, state.chartModel, function (id) { state.chartModel = id; render(); }, true);
     var metricSeg = (state.chartMode === "metric" && state.chartModel === "all") ? el("div", { class: "dsp-seg" }, [
       el("button", { class: state.metric === "cost" ? "dsp-on" : "", type: "button", text: t("cost"), on: { click: function () { state.metric = "cost"; render(); } } }),
       el("button", { class: state.metric === "token" ? "dsp-on" : "", type: "button", text: t("tokens"), on: { click: function () { state.metric = "token"; render(); } } })
@@ -893,30 +972,32 @@
     var unitCost = function (v) { return "$" + v.toFixed(2); };
     var chartBody, titleText;
     if (state.chartModel !== "all" && m.byModel[state.chartModel]) {
-      // Double chart (at most two): API requests and tokens for the model.
+      // Double chart (at most two): API requests (area) and tokens (bars).
       var bm = m.byModel[state.chartModel];
       titleText = state.chartModel;
       chartBody = el("div", { class: "dsp-charts dsp-charts-2" }, [
         el("div", { class: "dsp-chart" }, [
           el("div", { class: "dsp-chart-head" }, [el("div", { class: "dsp-muted", text: t("chart_requests") }), el("div", { class: "dsp-muted", text: fmtInt(sumMap(bm.req)) })]),
-          renderChart([{ label: t("chart_requests"), color: MODEL_COLORS[0], byDay: bm.req }], fmtInt)
+          areaChart(bm.req, fmtInt)
         ]),
         el("div", { class: "dsp-chart" }, [
           el("div", { class: "dsp-chart-head" }, [el("div", { class: "dsp-muted", text: t("tokens") }), el("div", { class: "dsp-muted", text: fmtInt(sumMap(bm.token)) })]),
           renderChart([{ label: t("tokens"), color: MODEL_COLORS[0], byDay: bm.token }], fmtInt)
         ])
       ]);
+    } else if (state.chartMode === "requests") {
+      // API requests as a smooth area chart (all models summed).
+      var reqByDay = {};
+      m.models.forEach(function (mm) { var map = m.byModel[mm].req; for (var d in map) reqByDay[d] = (reqByDay[d] || 0) + map[d]; });
+      titleText = t("chart_requests");
+      chartBody = el("div", { class: "dsp-charts" }, [
+        el("div", { class: "dsp-chart" }, [areaChart(reqByDay, fmtInt)])
+      ]);
     } else {
       var field = state.metric === "cost" ? "cost" : "token";
-      var series = [];
-      var fieldOf = state.chartMode === "requests" ? "req" : field;
-      if (state.chartModel === "all") {
-        m.models.forEach(function (mm, i) { series.push({ label: mm, color: MODEL_COLORS[i % MODEL_COLORS.length], byDay: m.byModel[mm][fieldOf] }); });
-      } else {
-        series.push({ label: state.chartModel, color: MODEL_COLORS[0], byDay: ((m.byModel[state.chartModel] || {})[fieldOf]) || {} });
-      }
-      var unit = state.chartMode === "requests" ? fmtInt : (state.metric === "cost" ? unitCost : fmtInt);
-      titleText = state.chartMode === "requests" ? t("chart_requests") : (state.metric === "cost" ? t("cost") + " (" + m.currency + ")" : t("tokens"));
+      var series = m.models.map(function (mm, i) { return { label: mm, color: MODEL_COLORS[i % MODEL_COLORS.length], byDay: m.byModel[mm][field] }; });
+      var unit = state.metric === "cost" ? unitCost : fmtInt;
+      titleText = state.metric === "cost" ? t("cost") + " (" + m.currency + ")" : t("tokens");
       chartBody = el("div", { class: "dsp-charts" }, [
         el("div", { class: "dsp-chart" }, [renderChart(series, unit), chartLegend(series)])
       ]);
