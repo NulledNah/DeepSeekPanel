@@ -20,8 +20,9 @@ Recommended release: **v1.0.9** (stable).
 - Daily chart with a metric selector (cost / tokens) and an API requests mode
   (area chart), plus a model selector: stacked per-model bars, or a two chart
   view (API requests and tokens) when a single model is selected.
-- Status dot on the launcher: green above 1, yellow between 0.50 and 1, red below
-  0.50, black at 0, hidden when not logged in.
+- Status dot on the launcher (based on the available balance, in USD): green
+  above $1, yellow between $0.50 and $1, red below $0.50, black at $0, hidden
+  when not logged in.
 - Follows the system / OpenCode language (English fallback).
 - Flat styling using OpenCode theme variables.
 
