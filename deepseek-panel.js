@@ -22,6 +22,7 @@
   var CARD_MAX_W = 690;
   var CARD_MIN_W = 360;
   var DASHBOARD_URL = "https://platform.deepseek.com/usage";
+  var PANEL_VERSION = "v1.0.10";
 
   // Language: OpenCode / system language, English fallback. No strings are
   // hardcoded in a specific language outside this table.
@@ -248,6 +249,8 @@
     ".dsp-head-brand{display:flex;align-items:center;gap:8px;font-weight:600}",
     ".dsp-head-brand .dsp-mark{width:18px;height:18px;display:block;color:var(--dsp-accent)}",
     ".dsp-head-left{display:flex;align-items:center;gap:6px}",
+    ".dsp-head-right{display:flex;align-items:center;gap:8px}",
+    ".dsp-version{color:var(--text-weak,#8f8f8f);font-size:11px;font-variant-numeric:tabular-nums;letter-spacing:.02em}",
     ".dsp-ico{width:15px;height:15px;display:block}",
     ".dsp-ico-ext{width:13px;height:13px;opacity:.85}",
     ".dsp-spin{animation:dsp-rotate .8s linear infinite}",
@@ -1031,7 +1034,10 @@
         el("div", { class: "dsp-head-brand" }, [svgMark(), el("span", { text: "DeepSeek" })]),
         refresh
       ]),
-      el("button", { class: "dsp-icon-btn", type: "button", title: t("close"), "aria-label": t("close"), html: "&#10005;", on: { click: function () { setOpen(false); } } })
+      el("div", { class: "dsp-head-right" }, [
+        el("span", { class: "dsp-version", text: PANEL_VERSION }),
+        el("button", { class: "dsp-icon-btn", type: "button", title: t("close"), "aria-label": t("close"), html: "&#10005;", on: { click: function () { setOpen(false); } } })
+      ])
     ]);
   }
 
