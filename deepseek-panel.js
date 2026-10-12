@@ -307,7 +307,7 @@
     ".dsp-drop-btn{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 10px;border-radius:9px;border:1px solid var(--border-base,rgba(255,255,255,.16));background:transparent;color:var(--text-strong,#e8e8e8);cursor:pointer;font-size:12px}",
     ".dsp-drop-btn:hover{background:var(--surface-base-hover,rgba(255,255,255,.07))}",
     ".dsp-drop-btn .dsp-caret{color:var(--text-weak,#9a9a9a);font-size:10px}",
-    ".dsp-menu{position:absolute;top:38px;left:0;min-width:190px;max-width:min(320px,78vw);max-height:280px;overflow:auto;border:1px solid var(--border-base,rgba(255,255,255,.16));border-radius:10px;background:var(--background-strong,#1b1b1b);box-shadow:0 12px 32px -10px rgba(0,0,0,.6);z-index:5;padding:5px;display:none}",
+    ".dsp-menu{position:absolute;top:calc(100% + 4px);left:0;min-width:190px;max-width:min(320px,78vw);max-height:280px;overflow-y:auto;overflow-x:hidden;border:1px solid var(--border-base,rgba(255,255,255,.16));border-radius:10px;background:var(--background-strong,#1b1b1b);box-shadow:0 12px 32px -10px rgba(0,0,0,.6);z-index:6;padding:5px;display:none}",
     ".dsp-menu.dsp-menu-open{display:block}",
     ".dsp-menu-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:7px 9px;border-radius:7px;cursor:pointer;white-space:nowrap;min-width:0}",
     ".dsp-menu-item:hover{background:var(--surface-base-hover,rgba(255,255,255,.08))}",
@@ -785,7 +785,29 @@
   function dropdown(label, options, selected, onSelect, alignRight) {
     var menu = el("div", { class: "dsp-menu" });
     if (alignRight) { menu.style.left = "auto"; menu.style.right = "0"; }
-    var btn = el("button", { class: "dsp-drop-btn", type: "button", on: { click: function (e) { e.stopPropagation(); closeAllMenus(); menu.classList.toggle("dsp-menu-open"); } } });
+    var btn = el("button", { class: "dsp-drop-btn", type: "button", on: { click: function (e) {
+      e.stopPropagation();
+      var opening = !menu.classList.contains("dsp-menu-open");
+      closeAllMenus();
+      if (opening) {
+        // Keep the menu inside the panel: bound its height and flip it up when
+        // there is more room above, so it scrolls instead of the window.
+        var r = btn.getBoundingClientRect();
+        var cr = card.getBoundingClientRect();
+        var below = cr.bottom - r.bottom - 10;
+        var above = r.top - cr.top - 10;
+        if (below < 200 && above > below) {
+          menu.style.top = "auto";
+          menu.style.bottom = "calc(100% + 4px)";
+          menu.style.maxHeight = Math.min(280, Math.max(120, above)) + "px";
+        } else {
+          menu.style.bottom = "auto";
+          menu.style.top = "calc(100% + 4px)";
+          menu.style.maxHeight = Math.min(280, Math.max(120, below)) + "px";
+        }
+      }
+      menu.classList.toggle("dsp-menu-open");
+    } } });
     var sel = null;
     for (var i = 0; i < options.length; i++) if (options[i].id === selected) sel = options[i];
     btn.appendChild(el("span", { class: "dsp-menu-label", text: sel ? sel.label : (label || "Seleziona") }));
