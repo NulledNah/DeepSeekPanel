@@ -328,9 +328,16 @@
     ".dsp-area-fill{fill:var(--dsp-accent);opacity:.35}",
     ".dsp-area-line{fill:none;stroke:var(--dsp-accent);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}",
     ".dsp-area-hoverline{position:absolute;top:0;bottom:0;width:0;border-left:1px dashed var(--border-hover,rgba(255,255,255,.35));display:none}",
-    ".dsp-tooltip{position:absolute;top:2px;background:var(--surface-float-base,#232323);border:1px solid var(--border-base,rgba(255,255,255,.16));border-radius:8px;padding:6px 9px;font-size:11px;white-space:nowrap;pointer-events:none;z-index:3;box-shadow:0 4px 14px rgba(0,0,0,.45)}",
+    ".dsp-tooltip{position:absolute;top:2px;background:var(--surface-float-base,#232323);border:1px solid var(--border-base,rgba(255,255,255,.16));border-radius:8px;padding:6px 9px;font-size:11px;white-space:nowrap;pointer-events:none;z-index:3;box-shadow:0 4px 14px rgba(0,0,0,.45);max-width:240px}",
     ".dsp-tooltip-k{color:var(--text-weak,#9a9a9a)}",
     ".dsp-tooltip-v{font-weight:600}",
+    ".dsp-plotwrap{position:relative}",
+    ".dsp-tip-head{display:flex;justify-content:space-between;gap:16px;margin-bottom:3px}",
+    ".dsp-tip-date{color:var(--text-weak,#9a9a9a)}",
+    ".dsp-tip-total{font-weight:700}",
+    ".dsp-tip-row{display:flex;align-items:center;gap:6px}",
+    ".dsp-tip-label{color:var(--text-weak,#9a9a9a);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:150px}",
+    ".dsp-tip-val{font-weight:600;margin-left:auto}",
     ".dsp-seg{display:inline-flex;border:1px solid var(--border-base,rgba(255,255,255,.16));border-radius:8px;overflow:hidden}",
     ".dsp-seg button{border:0;background:transparent;padding:4px 10px;cursor:pointer;font-size:12px;color:var(--text-weak,#9a9a9a)}",
     ".dsp-seg button.dsp-on{background:var(--surface-base-active,rgba(255,255,255,.1));color:var(--text-strong,#e8e8e8)}",
@@ -816,19 +823,58 @@
       seriesDefs.forEach(function (s) {
         var v = s.byDay[d] || 0;
         if (v <= 0) return;
-        var seg = el("div", { class: "dsp-seg-bar", title: s.label + " - " + d + ": " + unit(v) });
+        var seg = el("div", { class: "dsp-seg-bar" });
         seg.style.height = (v / max) * 100 + "%";
         seg.style.background = s.color;
         col.appendChild(seg);
       });
       plot.appendChild(col);
     });
+
+    var hoverLine = el("div", { class: "dsp-area-hoverline" });
+    var tip = el("div", { class: "dsp-tooltip" });
+    tip.style.display = "none";
+    var wrap = el("div", { class: "dsp-plotwrap" }, [plot, hoverLine, tip]);
+    wrap.addEventListener("mousemove", function (e) {
+      var r = plot.getBoundingClientRect();
+      var n = keys.length;
+      if (!r.width || !n) return;
+      var rel = Math.max(0, Math.min(0.9999, (e.clientX - r.left) / r.width));
+      var idx = Math.floor(rel * n);
+      var day = keys[idx];
+      var colW = r.width / n;
+      var xpx = idx * colW + colW / 2;
+      hoverLine.style.display = "block";
+      hoverLine.style.left = xpx + "px";
+      var total = 0;
+      seriesDefs.forEach(function (s) { total += (s.byDay[day] || 0); });
+      tip.style.display = "block";
+      var leftPx = xpx + 14;
+      if (leftPx + 200 > r.width) leftPx = Math.max(0, xpx - 210);
+      tip.style.left = leftPx + "px";
+      tip.textContent = "";
+      tip.appendChild(el("div", { class: "dsp-tip-head" }, [
+        el("span", { class: "dsp-tip-date", text: day }),
+        el("span", { class: "dsp-tip-total", text: unit(total) })
+      ]));
+      seriesDefs.forEach(function (s) {
+        var v = s.byDay[day] || 0;
+        if (v <= 0) return;
+        tip.appendChild(el("div", { class: "dsp-tip-row" }, [
+          el("span", { class: "dsp-legend-dot", style: "background:" + s.color }),
+          el("span", { class: "dsp-tip-label", text: s.label }),
+          el("span", { class: "dsp-tip-val", text: unit(v) })
+        ]));
+      });
+    });
+    wrap.addEventListener("mouseleave", function () { hoverLine.style.display = "none"; tip.style.display = "none"; });
+
     var maxLabel = el("div", { class: "dsp-maxlabel", text: unit(max) });
     var xrow = el("div", { class: "dsp-xrow" }, [
       el("span", { text: keys[0] }),
       keys.length > 1 ? el("span", { text: keys[keys.length - 1] }) : null
     ]);
-    return el("div", {}, [maxLabel, plot, xrow]);
+    return el("div", {}, [maxLabel, wrap, xrow]);
   }
 
   function chartLegend(seriesDefs) {
