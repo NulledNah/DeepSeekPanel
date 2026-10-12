@@ -23,6 +23,91 @@
   var CARD_MIN_W = 360;
   var DASHBOARD_URL = "https://platform.deepseek.com/usage";
 
+  // Language: OpenCode / system language, English fallback. No strings are
+  // hardcoded in a specific language outside this table.
+  var LOCALE = (function () {
+    function pick(v) {
+      v = String(v || "").toLowerCase();
+      if (v.indexOf("it") === 0) return "it";
+      if (v.indexOf("en") === 0) return "en";
+      return null;
+    }
+    // System language first, then OpenCode's selected language, English fallback.
+    return pick(navigator.language) || pick(document.documentElement && document.documentElement.getAttribute("lang")) || "en";
+  })();
+  var I18N = {
+    en: {
+      login_title: "Sign in to DeepSeek",
+      login_desc: "Sign in with your DeepSeek Platform account to see balance, cost, tokens and usage history.",
+      login_button: "Sign in with DeepSeek",
+      login_fine: "A DeepSeek window will open. The session is stored on this device.",
+      logging: "Complete the login in the DeepSeek window...",
+      balance: "Available balance",
+      total_cost: "Total cost",
+      cost: "Cost",
+      requests: "API requests",
+      tokens: "Tokens",
+      no_data: "No data in this period.",
+      reset: "Clear filters",
+      refresh: "Refresh",
+      all_keys: "All API keys",
+      dashboard: "Dashboard",
+      logout: "Logout",
+      confirm_msg: "Do you really want to sign out of DeepSeek?",
+      cancel: "Cancel",
+      close: "Close",
+      apply: "Apply",
+      err_data: "Could not load data.",
+      err_login: "Login not completed.",
+      err_network: "Login error.",
+      preset_today: "Today",
+      preset_yesterday: "Yesterday",
+      preset_7d: "Last 7 days",
+      preset_30d: "Last 30 days",
+      preset_thisMonth: "This month",
+      preset_lastMonth: "Last month",
+      preset_custom: "Custom"
+    },
+    it: {
+      login_title: "Accedi a DeepSeek",
+      login_desc: "Accedi con il tuo account DeepSeek Platform per vedere saldo, costo, token e storico di utilizzo.",
+      login_button: "Accedi con DeepSeek",
+      login_fine: "Si aprira' una finestra DeepSeek. La sessione resta salvata sul dispositivo.",
+      logging: "Completa il login nella finestra DeepSeek...",
+      balance: "Saldo disponibile",
+      total_cost: "Costo totale",
+      cost: "Costo",
+      requests: "Richieste API",
+      tokens: "Token",
+      no_data: "Nessun dato nel periodo.",
+      reset: "Azzera filtri",
+      refresh: "Aggiorna",
+      all_keys: "Tutte le API key",
+      dashboard: "Dashboard",
+      logout: "Logout",
+      confirm_msg: "Vuoi davvero uscire dall'account DeepSeek?",
+      cancel: "Annulla",
+      close: "Chiudi",
+      apply: "Applica",
+      err_data: "Errore nel recupero dei dati.",
+      err_login: "Login non completato.",
+      err_network: "Errore di login.",
+      preset_today: "Oggi",
+      preset_yesterday: "Ieri",
+      preset_7d: "Ultimi 7 giorni",
+      preset_30d: "Ultimi 30 giorni",
+      preset_thisMonth: "Questo mese",
+      preset_lastMonth: "Mese scorso",
+      preset_custom: "Personalizzato"
+    }
+  };
+  function t(key) {
+    var dict = I18N[LOCALE] || I18N.en;
+    if (dict[key] != null) return dict[key];
+    if (I18N.en[key] != null) return I18N.en[key];
+    return key;
+  }
+
   var store = {
     get: function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
     set: function (k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
@@ -84,7 +169,7 @@
     return Object.keys(map).map(function (id) { return { id: id, name: map[id] }; });
   }
   function friendlyError(e) {
-    if (!e || /JSON|Unexpected/i.test(e)) return "Errore nel recupero dei dati.";
+    if (!e || /JSON|Unexpected/i.test(e)) return t("err_data");
     return e;
   }
 
@@ -124,6 +209,26 @@
     ".dsp-confirm-title{font-weight:600;margin-bottom:4px}",
     ".dsp-confirm-msg{color:var(--text-weak,#9a9a9a);font-size:12px;margin-bottom:12px}",
     ".dsp-confirm-actions{display:flex;gap:8px}",
+    ".dsp-timepanel{display:flex;width:min(620px,94vw);max-height:82vh;border:1px solid var(--border-base,rgba(255,255,255,.16));border-radius:12px;background:var(--background-strong,#1b1b1b);overflow:hidden}",
+    ".dsp-cal-presets{width:154px;flex:none;padding:8px;border-right:1px solid var(--border-weak-base,rgba(255,255,255,.08));display:flex;flex-direction:column;gap:2px;overflow:auto}",
+    ".dsp-cal-preset{padding:8px 10px;border-radius:8px;cursor:pointer;font-size:13px;white-space:nowrap}",
+    ".dsp-cal-preset:hover{background:var(--surface-base-hover,rgba(255,255,255,.07))}",
+    ".dsp-cal-preset.dsp-on{background:var(--surface-base-active,rgba(255,255,255,.1))}",
+    ".dsp-cal-main{flex:1;min-width:0;padding:10px 12px;display:flex;flex-direction:column}",
+    ".dsp-cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}",
+    ".dsp-cal-nav-title{font-weight:600;font-size:13px}",
+    ".dsp-cal-months{display:grid;grid-template-columns:1fr 1fr;gap:14px;flex:1}",
+    ".dsp-cal-mtitle{font-weight:600;font-size:12px;text-align:center;margin-bottom:6px;text-transform:capitalize}",
+    ".dsp-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}",
+    ".dsp-cal-wd{text-align:center;color:var(--text-weak,#9a9a9a);font-size:11px;padding:2px 0}",
+    ".dsp-cal-day{text-align:center;padding:6px 0;border-radius:7px;font-size:12px;cursor:pointer}",
+    ".dsp-cal-day:not(.dsp-cal-empty):hover{background:var(--surface-base-hover,rgba(255,255,255,.08))}",
+    ".dsp-cal-empty{cursor:default}",
+    ".dsp-cal-inrange{background:var(--dsp-accent-soft,rgba(77,107,254,.18))}",
+    ".dsp-cal-edge{background:var(--dsp-accent);color:#fff}",
+    ".dsp-cal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:10px}",
+    ".dsp-cal-actions .dsp-ghost{flex:0 0 auto;padding:0 16px}",
+    ".dsp-ghost:disabled{opacity:.5;cursor:default}",
     ".dsp-icon-btn{border:0;background:transparent;width:26px;height:26px;border-radius:8px;cursor:pointer;color:var(--text-weak,#8f8f8f);font-size:12px;display:flex;align-items:center;justify-content:center;padding:0}",
     ".dsp-icon-btn:hover{background:var(--surface-base-hover,rgba(255,255,255,.08));color:var(--text-strong,#e8e8e8)}",
     ".dsp-scroll{overflow:auto;flex:1}",
@@ -200,13 +305,13 @@
   launcher.appendChild(el("span", { class: "dsp-status-dot" }));
 
   var TIME_PRESETS = [
-    { id: "today", label: "Oggi" },
-    { id: "yesterday", label: "Ieri" },
-    { id: "7d", label: "Ultimi 7 giorni" },
-    { id: "30d", label: "Ultimi 30 giorni" },
-    { id: "thisMonth", label: "Questo mese" },
-    { id: "lastMonth", label: "Mese scorso" },
-    { id: "custom", label: "Personalizzato" }
+    { id: "today", label: t("preset_today") },
+    { id: "yesterday", label: t("preset_yesterday") },
+    { id: "7d", label: t("preset_7d") },
+    { id: "30d", label: t("preset_30d") },
+    { id: "thisMonth", label: t("preset_thisMonth") },
+    { id: "lastMonth", label: t("preset_lastMonth") },
+    { id: "custom", label: t("preset_custom") }
   ];
 
   var state = {
@@ -216,13 +321,17 @@
     loggedIn: false,
     confirmLogout: false,
     restoreTried: false,
+    timePicker: false,
+    cal: { month: new Date(), start: null, end: null },
     summary: null,
     amount: null,
     cost: null,
     keys: [],
     filter: { preset: "thisMonth", apiKey: "all", start: null, end: null },
     metric: "cost",
-    status: null
+    status: null,
+    reqId: 0,
+    usageCache: {}
   };
 
   function isOpen() { return card.classList.contains("dsp-open"); }
@@ -356,18 +465,19 @@
   }
 
   function doLogin() {
+    state.usageCache = {}; state.keys = [];
     state.view = "logging"; state.error = ""; render();
     dsLogin().catch(function () {}).then(function () { start(); });
   }
 
   function doLogout() {
-    state.loggedIn = false; state.confirmLogout = false;
+    state.loggedIn = false; state.confirmLogout = false; state.usageCache = {}; state.keys = [];
     dsLogout().then(function () { state.summary = state.amount = state.cost = null; state.view = "login"; render(); });
   }
 
   function resetFilters() {
     state.filter.preset = "thisMonth"; state.filter.apiKey = "all"; state.filter.start = null; state.filter.end = null;
-    loadUsage();
+    scheduleLoad();
   }
 
   function balanceValue() {
@@ -389,40 +499,167 @@
   function confirmModal() {
     return el("div", { class: "dsp-confirm-overlay", on: { click: function () { state.confirmLogout = false; render(); } } }, [
       el("div", { class: "dsp-confirm", on: { click: function (e) { e.stopPropagation(); } } }, [
-        el("div", { class: "dsp-confirm-title", text: "Logout" }),
-        el("div", { class: "dsp-confirm-msg", text: "Vuoi davvero uscire dall'account DeepSeek?" }),
-        el("div", { class: "dsp-confirm-actions" }, [
-          el("button", { class: "dsp-ghost", type: "button", text: "Annulla", on: { click: function () { state.confirmLogout = false; render(); } } }),
-          el("button", { class: "dsp-ghost dsp-danger", type: "button", text: "Logout", on: { click: function () { state.confirmLogout = false; doLogout(); } } })
+      el("div", { class: "dsp-confirm-title", text: t("logout") }),
+      el("div", { class: "dsp-confirm-msg", text: t("confirm_msg") }),
+      el("div", { class: "dsp-confirm-actions" }, [
+        el("button", { class: "dsp-ghost", type: "button", text: t("cancel"), on: { click: function () { state.confirmLogout = false; render(); } } }),
+        el("button", { class: "dsp-ghost dsp-danger", type: "button", text: t("logout"), on: { click: function () { state.confirmLogout = false; doLogout(); } } })
         ])
       ])
     ]);
   }
 
-  function loadUsage() {
-    state.loading = true; state.error = "";
+  function localeId() { return LOCALE === "it" ? "it-IT" : "en-US"; }
+  function monthTitle(d) { return d.toLocaleDateString(localeId(), { month: "long", year: "numeric" }); }
+  function weekdayNames() {
+    var fmt = new Intl.DateTimeFormat(localeId(), { weekday: "narrow" });
+    var names = [];
+    for (var i = 0; i < 7; i++) names.push(fmt.format(new Date(2024, 0, 7 + i)));
+    return names;
+  }
+  function presetLabel(id) {
+    for (var i = 0; i < TIME_PRESETS.length; i++) if (TIME_PRESETS[i].id === id) return TIME_PRESETS[i].label;
+    return id;
+  }
+  function monthGrid(year, month, calStart, calEnd) {
+    var firstWeekday = new Date(year, month, 1).getDay();
+    var daysInMonth = new Date(year, month + 1, 0).getDate();
+    var grid = el("div", { class: "dsp-cal-grid" });
+    weekdayNames().forEach(function (n) { grid.appendChild(el("div", { class: "dsp-cal-wd", text: n })); });
+    for (var i = 0; i < firstWeekday; i++) grid.appendChild(el("div", { class: "dsp-cal-day dsp-cal-empty" }));
+    var add = function (d) {
+      var sec = dayStart(new Date(year, month, d));
+      var cls = "dsp-cal-day";
+      if (calStart != null && calEnd != null && sec >= calStart && sec <= calEnd) cls += " dsp-cal-inrange";
+      if ((calStart != null && sec === calStart) || (calEnd != null && sec === calEnd)) cls += " dsp-cal-edge";
+      var cell = el("div", { class: cls, text: String(d) });
+      cell.addEventListener("click", function () { pickDay(sec); });
+      grid.appendChild(cell);
+    };
+    for (var d = 1; d <= daysInMonth; d++) add(d);
+    return grid;
+  }
+  function pickDay(sec) {
+    var c = state.cal;
+    if (c.start == null || c.end != null) { c.start = sec; c.end = null; }
+    else if (sec < c.start) { c.end = c.start; c.start = sec; }
+    else { c.end = sec; }
+    render();
+  }
+  function openTimePicker() {
+    var r = currentRange();
+    var d = new Date(r.start * 1000);
+    state.cal = { month: new Date(d.getFullYear(), d.getMonth(), 1), start: null, end: null };
+    if (state.filter.preset === "custom" && state.filter.start != null) {
+      state.cal.start = state.filter.start;
+      state.cal.end = state.filter.end != null ? state.filter.end - 86400 : null;
+    }
+    state.timePicker = true;
+    render();
+  }
+  function choosePreset(id) {
+    state.filter.preset = id;
+    state.filter.start = null; state.filter.end = null;
+    state.timePicker = false;
+    if (id === "custom") { render(); return; }
+    scheduleLoad();
+  }
+  function applyCustom() {
+    var c = state.cal;
+    if (c.start == null || c.end == null) return;
+    state.filter.preset = "custom";
+    state.filter.start = c.start;
+    state.filter.end = c.end + 86400;
+    state.timePicker = false;
+    scheduleLoad();
+  }
+  function timePickerModal() {
+    var c = state.cal;
+    var m1 = c.month;
+    var m2 = new Date(m1.getFullYear(), m1.getMonth() + 1, 1);
+    var presets = el("div", { class: "dsp-cal-presets" }, TIME_PRESETS.map(function (p) {
+      return el("div", { class: "dsp-cal-preset" + (state.filter.preset === p.id ? " dsp-on" : ""), text: p.label, on: { click: function () { choosePreset(p.id); } } });
+    }));
+    var months = el("div", { class: "dsp-cal-months" }, [
+      el("div", { class: "dsp-cal" }, [el("div", { class: "dsp-cal-mtitle", text: monthTitle(m1) }), monthGrid(m1.getFullYear(), m1.getMonth(), c.start, c.end)]),
+      el("div", { class: "dsp-cal" }, [el("div", { class: "dsp-cal-mtitle", text: monthTitle(m2) }), monthGrid(m2.getFullYear(), m2.getMonth(), c.start, c.end)])
+    ]);
+    var nav = el("div", { class: "dsp-cal-nav" }, [
+      el("button", { class: "dsp-icon-btn", type: "button", html: "&#8249;", on: { click: function () { state.cal.month = new Date(m1.getFullYear(), m1.getMonth() - 1, 1); render(); } } }),
+      el("div", { class: "dsp-cal-nav-title", text: monthTitle(m1) + " - " + monthTitle(m2) }),
+      el("button", { class: "dsp-icon-btn", type: "button", html: "&#8250;", on: { click: function () { state.cal.month = new Date(m1.getFullYear(), m1.getMonth() + 1, 1); render(); } } })
+    ]);
+    var apply = el("button", { class: "dsp-ghost", type: "button", text: t("apply"), on: { click: applyCustom } });
+    if (c.start == null || c.end == null) apply.setAttribute("disabled", "disabled");
+    var actions = el("div", { class: "dsp-cal-actions" }, [
+      el("button", { class: "dsp-ghost", type: "button", text: t("cancel"), on: { click: function () { state.timePicker = false; render(); } } }),
+      apply
+    ]);
+    return el("div", { class: "dsp-confirm-overlay", on: { click: function () { state.timePicker = false; render(); } } }, [
+      el("div", { class: "dsp-timepanel", on: { click: function (e) { e.stopPropagation(); } } }, [
+        presets,
+        el("div", { class: "dsp-cal-main" }, [nav, months, actions])
+      ])
+    ]);
+  }
+
+  function applyUsage(res) {
+    if (res.summary) state.summary = res.summary;
+    if (res.amount) state.amount = res.amount;
+    if (res.cost) state.cost = res.cost;
+    var m = computeMetrics();
+    if (res.keys && res.keys.length) state.keys = mergeKeys(apiKeysFrom(res.keys), m.keys);
+    else if (m.keys.length) state.keys = m.keys;
+  }
+
+  function loadUsage(force) {
+    state.error = "";
     var range = currentRange();
     var tz = tzOffset();
     var whole = 3600 * Math.floor(tz / 3600), rem = tz - whole;
+    var params = { start: range.start + rem, end: range.end + rem, tz: whole };
+    var key = state.filter.preset + ":" + state.filter.apiKey + ":" + params.start + ":" + params.end;
+    var cached = state.usageCache[key];
+    if (!force && cached && Date.now() - cached.at < 30000) {
+      applyUsage(cached.data);
+      state.loggedIn = true;
+      state.view = "dashboard";
+      render();
+      return;
+    }
+    state.loading = true;
     render();
-    dsUsage({ start: range.start + rem, end: range.end + rem, tz: whole }).then(function (res) {
+    var myId = ++state.reqId;
+    dsUsage(params).then(function (res) {
+      if (myId !== state.reqId) return; // a newer request superseded this one
       state.loading = false;
       if (!res || !res.ok) {
         var err = (res && res.error) || "";
         if (err === "not_authenticated" || /40[13]/.test(err)) { state.loggedIn = false; state.view = "login"; }
-        else { state.view = "dashboard"; state.error = friendlyError(err); }
+        else {
+          // Keep the previous data instead of blanking the panel.
+          state.view = "dashboard";
+          if (!state.summary) state.error = friendlyError(err);
+        }
         render(); return;
       }
       state.loggedIn = true;
-      state.summary = res.summary; state.amount = res.amount; state.cost = res.cost;
-      var m = computeMetrics();
-      state.keys = mergeKeys(apiKeysFrom(res.keys), m.keys);
+      applyUsage(res);
+      state.usageCache[key] = { at: Date.now(), data: res };
       state.view = "dashboard";
       render();
     }).catch(function (e) {
-      state.loading = false; state.view = "dashboard"; state.error = friendlyError(e && e.message);
+      if (myId !== state.reqId) return;
+      state.loading = false; state.view = "dashboard";
+      if (!state.summary) state.error = friendlyError(e && e.message);
       render();
     });
+  }
+
+  var loadTimer = null;
+  function scheduleLoad() {
+    if (loadTimer) clearTimeout(loadTimer);
+    loadTimer = setTimeout(function () { loadTimer = null; loadUsage(); }, 200);
   }
 
   // ---- dropdown -----------------------------------------------------------
@@ -453,10 +690,10 @@
   // ---- chart (HTML bars: crisp text, no SVG scaling) ----------------------
   function buildChart(byDay, metric) {
     var keys = Object.keys(byDay).sort();
-    if (!keys.length) return el("div", { class: "dsp-empty", text: "Nessun dato nel periodo." });
+    if (!keys.length) return el("div", { class: "dsp-empty", text: t("no_data") });
     var max = 0;
     keys.forEach(function (k) { if (byDay[k] > max) max = byDay[k]; });
-    if (max <= 0) return el("div", { class: "dsp-empty", text: "Nessun dato nel periodo." });
+    if (max <= 0) return el("div", { class: "dsp-empty", text: t("no_data") });
     var plot = el("div", { class: "dsp-plot" });
     keys.forEach(function (k) {
       var v = byDay[k];
@@ -505,7 +742,7 @@
   }
 
   function header() {
-    var refresh = el("button", { class: "dsp-icon-btn dsp-refresh", type: "button", title: "Aggiorna", "aria-label": "Aggiorna", on: { click: loadUsage } });
+    var refresh = el("button", { class: "dsp-icon-btn dsp-refresh", type: "button", title: t("refresh"), "aria-label": t("refresh"), on: { click: function () { loadUsage(true); } } });
     var refreshIcon = svgRefresh();
     if (state.loading) refreshIcon.classList.add("dsp-spin");
     refresh.appendChild(refreshIcon);
@@ -514,7 +751,7 @@
         el("div", { class: "dsp-head-brand" }, [svgMark(), el("span", { text: "DeepSeek" })]),
         refresh
       ]),
-      el("button", { class: "dsp-icon-btn", type: "button", title: "Chiudi", "aria-label": "Chiudi", html: "&#10005;", on: { click: function () { setOpen(false); } } })
+      el("button", { class: "dsp-icon-btn", type: "button", title: t("close"), "aria-label": t("close"), html: "&#10005;", on: { click: function () { setOpen(false); } } })
     ]);
   }
 
@@ -522,11 +759,11 @@
     return el("div", { class: "dsp-body" }, [
       el("div", { class: "dsp-login" }, [
         svgMark(),
-        el("h2", { text: "Accedi a DeepSeek" }),
-        el("p", { class: "dsp-muted", text: "Accedi con il tuo account DeepSeek Platform per vedere saldo, costo, token e storico di utilizzo." }),
-        el("button", { class: "dsp-primary", type: "button", text: "Accedi con DeepSeek", on: { click: doLogin } }),
+        el("h2", { text: t("login_title") }),
+        el("p", { class: "dsp-muted", text: t("login_desc") }),
+        el("button", { class: "dsp-primary", type: "button", text: t("login_button"), on: { click: doLogin } }),
         state.error ? el("div", { class: "dsp-error", text: state.error }) : null,
-        el("p", { class: "dsp-fine", text: "Si aprira' una finestra DeepSeek. La sessione resta salvata sul dispositivo." })
+        el("p", { class: "dsp-fine", text: t("login_fine") })
       ])
     ]);
   }
@@ -534,7 +771,7 @@
   function loggingView() {
     return el("div", { class: "dsp-body" }, [
       el("div", { class: "dsp-spinner" }),
-      el("p", { class: "dsp-muted", style: "text-align:center", text: "Completa il login nella finestra DeepSeek..." })
+      el("p", { class: "dsp-muted", style: "text-align:center", text: t("logging") })
     ]);
   }
 
@@ -543,52 +780,50 @@
   function dashboardView() {
     var m = computeMetrics();
     var s = summaryValues();
-    var timeOptions = TIME_PRESETS.map(function (p) { return { id: p.id, label: p.label }; });
-    var keyOptions = [{ id: "all", label: "Tutte le API key" }].concat(state.keys.map(function (k) { return { id: k.id, label: k.name, sub: k.id.slice(0, 10) }; }));
+    var keyOptions = [{ id: "all", label: t("all_keys") }].concat(state.keys.map(function (k) { return { id: k.id, label: k.name, sub: k.id.slice(0, 10) }; }));
 
+    var timeBtn = el("button", { class: "dsp-drop-btn", type: "button", on: { click: openTimePicker } });
+    timeBtn.appendChild(el("span", { text: presetLabel(state.filter.preset) }));
+    timeBtn.appendChild(el("span", { class: "dsp-caret", html: "&#9662;" }));
     var bar = el("div", { class: "dsp-bar" }, [
-      dropdown("Periodo", timeOptions, state.filter.preset, function (id) {
-        state.filter.preset = id;
-        if (id === "custom") { state.filter.start = currentRange().start; state.filter.end = currentRange().end; }
-        loadUsage();
-      }),
+      timeBtn,
       dropdown("API Key", keyOptions, state.filter.apiKey, function (id) { state.filter.apiKey = id; render(); }),
-      el("button", { class: "dsp-drop-btn", type: "button", text: "Azzera filtri", on: { click: resetFilters } }),
+      el("button", { class: "dsp-drop-btn", type: "button", text: t("reset"), on: { click: resetFilters } }),
       s.currency ? el("span", { class: "dsp-muted", style: "margin-left:auto", text: s.currency }) : null
     ]);
 
     var summaryRow = el("div", { class: "dsp-row dsp-row-2", style: "margin-bottom:10px" }, [
       el("div", { class: "dsp-cardbox" }, [
-        el("div", { class: "dsp-k", text: "Saldo disponibile" }),
+        el("div", { class: "dsp-k", text: t("balance") }),
         el("div", { class: "dsp-balance-row" }, [
           el("span", { class: "dsp-big", text: s.balance != null ? fmtAmount(s.balance, s.currency) : "-" })
         ])
       ]),
       el("div", { class: "dsp-cardbox" }, [
-        el("div", { class: "dsp-k", text: "Costo totale" }),
+        el("div", { class: "dsp-k", text: t("total_cost") }),
         el("div", { class: "dsp-big", text: s.totalCost != null ? fmtAmount(parseFloat(s.totalCost), s.currency) : "-" })
       ])
     ]);
 
     var metricsRow = el("div", { class: "dsp-row dsp-row-3", style: "margin-bottom:10px" }, [
       el("div", { class: "dsp-cardbox" }, [
-        el("div", { class: "dsp-k", text: "Costo" }),
+        el("div", { class: "dsp-k", text: t("cost") }),
         el("div", { class: "dsp-v-sm" }, [el("span", { text: fmtAmount(m.cost, m.currency) })])
       ]),
       el("div", { class: "dsp-cardbox" }, [
-        el("div", { class: "dsp-k", text: "Richieste API" }),
+        el("div", { class: "dsp-k", text: t("requests") }),
         el("div", { class: "dsp-v-sm", text: fmtInt(m.requests) })
       ]),
       el("div", { class: "dsp-cardbox" }, [
-        el("div", { class: "dsp-k", text: "Token" }),
+        el("div", { class: "dsp-k", text: t("tokens") }),
         el("div", { class: "dsp-v-sm", text: fmtInt(m.tokens) })
       ])
     ]);
 
-    var chartTitle = state.metric === "cost" ? "Costo (" + m.currency + ")" : "Token";
+    var chartTitle = state.metric === "cost" ? t("cost") + " (" + m.currency + ")" : t("tokens");
     var seg = el("div", { class: "dsp-seg" }, [
-      el("button", { class: state.metric === "cost" ? "dsp-on" : "", type: "button", text: "Costo", on: { click: function () { state.metric = "cost"; render(); } } }),
-      el("button", { class: state.metric === "token" ? "dsp-on" : "", type: "button", text: "Token", on: { click: function () { state.metric = "token"; render(); } } })
+      el("button", { class: state.metric === "cost" ? "dsp-on" : "", type: "button", text: t("cost"), on: { click: function () { state.metric = "cost"; render(); } } }),
+      el("button", { class: state.metric === "token" ? "dsp-on" : "", type: "button", text: t("tokens"), on: { click: function () { state.metric = "token"; render(); } } })
     ]);
     var chart = el("div", { class: "dsp-chart" }, [
       el("div", { class: "dsp-chart-head" }, [
@@ -598,32 +833,18 @@
       buildChart(state.metric === "cost" ? m.costByDay : m.tokenByDay, state.metric)
     ]);
 
-    var customRow = null;
-    if (state.filter.preset === "custom") {
-      var toDate = function (sec) { var d = new Date(sec * 1000 - new Date(sec * 1000).getTimezoneOffset() * 60000); return d.toISOString().slice(0, 10); };
-      var startIn = el("input", { class: "dsp-date", type: "date", value: state.filter.start ? toDate(state.filter.start) : "" });
-      var endIn = el("input", { class: "dsp-date", type: "date", value: state.filter.end ? toDate(state.filter.end) : "" });
-      var apply = el("button", { class: "dsp-drop-btn", type: "button", text: "Applica", on: { click: function () {
-        if (startIn.value) state.filter.start = dayStart(new Date(startIn.value + "T00:00:00"));
-        if (endIn.value) state.filter.end = dayStart(new Date(endIn.value + "T00:00:00")) + 86400;
-        loadUsage();
-      } } });
-      customRow = el("div", { class: "dsp-bar" }, [startIn, el("span", { class: "dsp-muted", text: "\u2192" }), endIn, apply]);
-    }
-
     var dashBtn = el("button", { class: "dsp-ghost", type: "button", on: { click: function () { if (window.api && window.api.openLink) window.api.openLink(DASHBOARD_URL); else window.open(DASHBOARD_URL, "_blank"); } } });
-    dashBtn.appendChild(el("span", { text: "Dashboard" }));
+    dashBtn.appendChild(el("span", { text: t("dashboard") }));
     dashBtn.appendChild(svgExternal());
     var foot = el("div", { class: "dsp-foot" }, [
       dashBtn,
-      el("button", { class: "dsp-ghost dsp-danger", type: "button", text: "Logout", on: { click: function () { state.confirmLogout = true; render(); } } })
+      el("button", { class: "dsp-ghost dsp-danger", type: "button", text: t("logout"), on: { click: function () { state.confirmLogout = true; render(); } } })
     ]);
 
     var content = el("div", { class: "dsp-body" }, [
       state.error ? el("div", { class: "dsp-error", style: "margin-bottom:10px", text: state.error }) : null,
       summaryRow,
       bar,
-      customRow,
       metricsRow,
       chart,
       foot
@@ -642,6 +863,7 @@
     );
     card.appendChild(scroll);
     if (state.confirmLogout) card.appendChild(confirmModal());
+    if (state.timePicker) card.appendChild(timePickerModal());
     updateDot();
   }
 

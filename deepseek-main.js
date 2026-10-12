@@ -31,6 +31,11 @@ let token = null;
 let pendingLogin = null;
 let captureAttached = false;
 let capturing = false;
+let summaryCache = { value: null, at: 0 };
+let keysCache = { value: null, at: 0 };
+const SUMMARY_TTL = 60 * 1000;
+const KEYS_TTL = 5 * 60 * 1000;
+function clearCaches() { summaryCache = { value: null, at: 0 }; keysCache = { value: null, at: 0 }; }
 
 function tokenFile() { return join(app.getPath("userData"), "deepseek-session.json"); }
 function loadToken() {
@@ -181,6 +186,7 @@ async function runLoginWindow(silent) {
     };
     const succeed = (value) => {
       saveToken(value);
+      clearCaches();
       persistCookies().then(saveCookieBackup);
       finish({ ok: true, token: value });
       if (!win.isDestroyed()) {
@@ -256,6 +262,7 @@ ipcMain.handle("deepseek-restore", async () => runLoginWindow(true));
 
 ipcMain.handle("deepseek-logout", async () => {
   clearToken();
+  clearCaches();
   try { writeFileSync(cookieFile(), "{}"); } catch (e) { /* ignore */ }
   try { await dsSession().clearStorageData(); } catch (e) { /* ignore */ }
   try { await dsSession().clearCache(); } catch (e) { /* ignore */ }
@@ -277,17 +284,33 @@ async function waitSummary(deadline) {
   }
 }
 
+// Summary and the API key list do not depend on the selected period, so cache
+// them. This keeps filtering responsive and avoids hammering the platform API.
+async function getSummary() {
+  if (summaryCache.value && Date.now() - summaryCache.at < SUMMARY_TTL) return summaryCache.value;
+  const summary = await waitSummary(Date.now() + 12000);
+  if (usageReady(summary)) { summaryCache.value = summary; summaryCache.at = Date.now(); }
+  return summary;
+}
+
+async function getKeys() {
+  if (keysCache.value && Date.now() - keysCache.at < KEYS_TTL) return keysCache.value;
+  const keys = await dsGetKeys();
+  if (keys && keys.length) { keysCache.value = keys; keysCache.at = Date.now(); }
+  return keys;
+}
+
 ipcMain.handle("deepseek-usage", async (_event, params) => {
   const p = params || {};
   if (p.start == null || p.end == null || p.tz == null) return { ok: false, error: "bad_params" };
   const query = "?start=" + encodeURIComponent(p.start) + "&end=" + encodeURIComponent(p.end) + "&tz=" + encodeURIComponent(p.tz);
   try {
     // Right after login the API can answer with empty payloads for a moment;
-    // wait until the account summary is actually populated.
-    const summary = await waitSummary(Date.now() + 15000);
+    // the summary is retried until it is populated, then cached.
+    const summary = await getSummary();
     const amount = await dsGet("/api/v0/usage/by_api_key/amount" + query).catch(() => null);
     const cost = await dsGet("/api/v0/usage/by_api_key/cost" + query).catch(() => null);
-    const keys = await dsGetKeys();
+    const keys = await getKeys();
     return { ok: true, summary, amount, cost, keys };
   } catch (e) {
     return { ok: false, error: String((e && e.message) || e) };

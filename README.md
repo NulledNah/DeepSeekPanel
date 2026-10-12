@@ -14,9 +14,10 @@ log in from the integrated window.
 - Balance, total cost, and period cost / API requests / tokens.
 - Daily cost or token chart (Cost / Token toggle).
 - Time range filter (today, yesterday, 7/30 days, this month, last month, custom)
-  and API key filter.
+  with a calendar range picker, plus an API key filter.
 - Status dot on the launcher: green above 1, yellow between 0.50 and 1, red below
   0.50, black at 0, hidden when not logged in.
+- Follows the system / OpenCode language (English fallback).
 - Flat styling using OpenCode theme variables.
 
 ## Requirements
