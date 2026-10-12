@@ -177,6 +177,20 @@ function patchPreload(src) {
   return src.replace(needle, inject + needle);
 }
 
+// Panel version shown in the UI: the content of the VERSION file (single source
+// of truth, works also from a downloaded zip), with a git tag fallback.
+function panelVersion() {
+  try {
+    const v = fs.readFileSync(path.join(__dirname, "VERSION"), "utf8").trim();
+    if (v) return v;
+  } catch (e) { /* no VERSION file */ }
+  try {
+    const t = execSync("git describe --tags --abbrev=0", { cwd: __dirname, encoding: "utf8" }).trim();
+    if (t) return t;
+  } catch (e) { /* not a git checkout */ }
+  return "dev";
+}
+
 function install(args) {
   const appDir = args.app || defaultAppDir();
   const asar = resolveAsar(appDir);
@@ -210,7 +224,12 @@ function install(args) {
   const logo = extractLogoPath(header.json, asar, header.dataStart);
   if (!logo) console.warn("Logo DeepSeek non estratto: il pannello usera' un'icona minima.");
   const mainBuf = fs.readFileSync(mainSrc);
-  const panelBuf = Buffer.from(fs.readFileSync(panelSrc, "utf8").replace("__DEEPSEEK_LOGO_PATH__", logo || ""), "utf8");
+  const panelBuf = Buffer.from(
+    fs.readFileSync(panelSrc, "utf8")
+      .replace("__DEEPSEEK_LOGO_PATH__", logo || "")
+      .replace("__PANEL_VERSION__", panelVersion()),
+    "utf8"
+  );
   const preloadBuf = Buffer.from(patchPreload(preloadRaw.toString("utf8")), "utf8");
   const indexBuf = Buffer.from(patchIndexHtml(indexRaw.toString("utf8")), "utf8");
   const pkg = JSON.parse(pkgRaw.toString("utf8"));

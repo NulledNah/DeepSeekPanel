@@ -69,6 +69,8 @@ Restores the original `app.asar` from the backup created during install
   background, also while the panel is closed and at startup, so the launcher
   status dot stays current. The refresh interval is well above the cache TTL to
   avoid rate limiting.
+- The version shown in the panel header is read from the `VERSION` file and
+  injected at patch time; bump it for each release.
 
 ## Files
 
@@ -76,3 +78,4 @@ Restores the original `app.asar` from the backup created during install
 - `deepseek-main.js` - main-process module (login window, token capture, usage
   proxy).
 - `deepseek-panel.js` - renderer panel UI.
+- `VERSION` - panel version shown in the UI (injected at patch time).

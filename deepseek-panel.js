@@ -22,7 +22,8 @@
   var CARD_MAX_W = 690;
   var CARD_MIN_W = 360;
   var DASHBOARD_URL = "https://platform.deepseek.com/usage";
-  var PANEL_VERSION = "v1.0.10";
+  // Replaced at patch time by apply.js with the content of the VERSION file.
+  var PANEL_VERSION = "__PANEL_VERSION__";
 
   // Language: OpenCode / system language, English fallback. No strings are
   // hardcoded in a specific language outside this table.
@@ -1035,7 +1036,7 @@
         refresh
       ]),
       el("div", { class: "dsp-head-right" }, [
-        el("span", { class: "dsp-version", text: PANEL_VERSION }),
+        PANEL_VERSION && PANEL_VERSION.indexOf("__") !== 0 ? el("span", { class: "dsp-version", text: PANEL_VERSION }) : null,
         el("button", { class: "dsp-icon-btn", type: "button", title: t("close"), "aria-label": t("close"), html: "&#10005;", on: { click: function () { setOpen(false); } } })
       ])
     ]);
