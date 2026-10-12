@@ -125,6 +125,7 @@
 
   var LS_STATE = "deepseek.panel.state";
   var REFRESH_TTL = 60000;
+  var AUTO_REFRESH_MS = 180000;
   function saveState() {
     if (!state.summary) return;
     try {
@@ -431,6 +432,17 @@
     if (open) { positionCard(); start(); }
   }
 
+  // Periodic refresh that also runs while the panel is closed, so the launcher
+  // status dot stays current. The interval is well above the cache TTL and the
+  // summary / API key list stay cached, so each tick issues few requests.
+  var autoTimer = null;
+  function startBackgroundRefresh() {
+    if (autoTimer) return;
+    autoTimer = setInterval(function () {
+      if (state.loggedIn && !state.loading && state.summary) loadUsage(false);
+    }, AUTO_REFRESH_MS);
+  }
+
   // ---- time range ---------------------------------------------------------
   function tzOffset() { return -new Date().getTimezoneOffset() * 60; }
   function dayStart(d) { return Math.floor(new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() / 1000); }
@@ -579,7 +591,7 @@
 
   function resetFilters() {
     state.filter.preset = "thisMonth"; state.filter.apiKey = "all"; state.filter.start = null; state.filter.end = null;
-    scheduleLoad();
+    scheduleLoad(true);
   }
 
   function balanceValue() {
@@ -664,7 +676,7 @@
     state.filter.start = null; state.filter.end = null;
     state.timePicker = false;
     if (id === "custom") { render(); return; }
-    scheduleLoad();
+    scheduleLoad(true);
   }
   function applyCustom() {
     var c = state.cal;
@@ -673,7 +685,7 @@
     state.filter.start = c.start;
     state.filter.end = c.end + 86400;
     state.timePicker = false;
-    scheduleLoad();
+    scheduleLoad(true);
   }
   function timePickerModal() {
     var c = state.cal;
@@ -764,9 +776,9 @@
   }
 
   var loadTimer = null;
-  function scheduleLoad() {
+  function scheduleLoad(force) {
     if (loadTimer) clearTimeout(loadTimer);
-    loadTimer = setTimeout(function () { loadTimer = null; loadUsage(); }, 200);
+    loadTimer = setTimeout(function () { loadTimer = null; loadUsage(!!force); }, 200);
   }
 
   // ---- dropdown -----------------------------------------------------------
@@ -1210,6 +1222,8 @@
     launcher.addEventListener("click", function () { setOpen(!isOpen()); });
     mountLauncher();
     setInterval(mountLauncher, 1500);
+    start();
+    startBackgroundRefresh();
 
     card.addEventListener("keydown", function (e) { e.stopPropagation(); if (e.key === "Escape") setOpen(false); }, false);
     card.addEventListener("mousedown", function (e) { e.stopPropagation(); }, false);
