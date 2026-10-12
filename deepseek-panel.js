@@ -126,6 +126,7 @@
   var LS_STATE = "deepseek.panel.state";
   var REFRESH_TTL = 60000;
   var AUTO_REFRESH_MS = 180000;
+  var OPEN_REFRESH_MS = 20000;
   function saveState() {
     if (!state.summary) return;
     try {
@@ -553,9 +554,11 @@
       state.status = res || {};
       if (res && res.ok && res.valid) {
         state.loggedIn = true;
-        var fresh = haveData && state.dataAt && (Date.now() - state.dataAt) < REFRESH_TTL;
-        if (fresh) { render(); return; }
-        loadUsage(false); // refresh, quietly, keeping the current data on screen
+        // On open (or the startup check) refresh when the shown value is not
+        // very recent, so the panel and the status dot are the most up to date.
+        var recent = haveData && state.dataAt && (Date.now() - state.dataAt) < OPEN_REFRESH_MS;
+        if (recent) { render(); return; }
+        loadUsage(!!haveData); // force fresh, keep the current data on screen
         return;
       }
       state.loggedIn = false;
