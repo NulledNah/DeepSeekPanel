@@ -55,6 +55,9 @@ Restores the original `app.asar` from the backup created during install
   updating.
 - Login opens a DeepSeek window and captures the account session token, stored
   locally in the OpenCode user data folder.
+- After the first login the session is remembered across restarts: the DeepSeek
+  cookies are persisted on disk (with a file backup as a fallback), so you
+  normally do not need to log in again.
 
 ## Files
 

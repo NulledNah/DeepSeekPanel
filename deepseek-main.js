@@ -52,6 +52,73 @@ function clearToken() {
 
 function dsSession() { return session.fromPartition(PARTITION); }
 
+function cookieFile() { return join(app.getPath("userData"), "deepseek-cookies.json"); }
+function cookieUrl(domain, cookiePath, secure) {
+  return (secure ? "https" : "http") + "://" + String(domain || "platform.deepseek.com").replace(/^\./, "") + (cookiePath || "/");
+}
+
+async function readCookies() {
+  try { return await dsSession().cookies.get({ url: BASE + "/" }); } catch (e) { return []; }
+}
+
+// Electron drops session cookies (those without an expirationDate) on quit,
+// unlike a browser with "restore session" enabled. Promote them to persistent
+// cookies so the DeepSeek login survives restarts.
+async function persistCookies() {
+  const ses = dsSession();
+  const far = Math.floor(Date.now() / 1000) + 400 * 24 * 60 * 60;
+  try {
+    const cookies = await ses.cookies.get({ url: BASE + "/" });
+    for (const c of cookies) {
+      if (!c.session) continue;
+      const details = {
+        url: cookieUrl(c.domain, c.path, c.secure),
+        name: c.name, value: c.value, path: c.path,
+        httpOnly: c.httpOnly, secure: c.secure, expirationDate: far
+      };
+      if (c.domain) details.domain = c.domain;
+      if (c.sameSite) details.sameSite = c.sameSite;
+      try { await ses.cookies.set(details); } catch (e) { /* ignore */ }
+    }
+  } catch (e) { /* ignore */ }
+  try { await ses.cookies.flushStore(); } catch (e) { /* ignore */ }
+}
+
+async function saveCookieBackup() {
+  try {
+    const cookies = await readCookies();
+    const data = cookies.map(function (c) {
+      return { name: c.name, value: c.value, domain: c.domain, path: c.path, secure: c.secure, httpOnly: c.httpOnly, sameSite: c.sameSite, expirationDate: c.expirationDate };
+    });
+    writeFileSync(cookieFile(), JSON.stringify({ at: Date.now(), cookies: data }));
+  } catch (e) { /* ignore */ }
+}
+
+async function restoreCookieBackup() {
+  let data = null;
+  try { data = JSON.parse(readFileSync(cookieFile(), "utf8")); } catch (e) { return; }
+  if (!data || !data.cookies || !data.cookies.length) return;
+  const ses = dsSession();
+  const far = Math.floor(Date.now() / 1000) + 400 * 24 * 60 * 60;
+  for (const c of data.cookies) {
+    const details = {
+      url: cookieUrl(c.domain, c.path, c.secure),
+      name: c.name, value: c.value, path: c.path,
+      httpOnly: c.httpOnly, secure: c.secure, expirationDate: c.expirationDate || far
+    };
+    if (c.domain) details.domain = c.domain;
+    if (c.sameSite) details.sameSite = c.sameSite;
+    try { await ses.cookies.set(details); } catch (e) { /* ignore */ }
+  }
+  try { await ses.cookies.flushStore(); } catch (e) { /* ignore */ }
+}
+
+// If the cookie store lost the session (e.g. not flushed), re-inject the backup.
+async function ensureCookies() {
+  const existing = await readCookies();
+  if (!existing || !existing.length) await restoreCookieBackup();
+}
+
 async function validate(value) {
   try {
     const res = await net.fetch(BASE + "/api/v0/users/get_user_summary", {
@@ -88,6 +155,7 @@ function attachCapture() {
 async function runLoginWindow(silent) {
   attachCapture();
   loadToken();
+  await ensureCookies();
   if (token && (await validate(token)).ok) return { ok: true, token };
 
   return await new Promise((resolve) => {
@@ -113,6 +181,7 @@ async function runLoginWindow(silent) {
     };
     const succeed = (value) => {
       saveToken(value);
+      persistCookies().then(saveCookieBackup);
       finish({ ok: true, token: value });
       if (!win.isDestroyed()) {
         win.close();
@@ -187,6 +256,7 @@ ipcMain.handle("deepseek-restore", async () => runLoginWindow(true));
 
 ipcMain.handle("deepseek-logout", async () => {
   clearToken();
+  try { writeFileSync(cookieFile(), "{}"); } catch (e) { /* ignore */ }
   try { await dsSession().clearStorageData(); } catch (e) { /* ignore */ }
   try { await dsSession().clearCache(); } catch (e) { /* ignore */ }
   return { ok: true };
@@ -222,4 +292,9 @@ ipcMain.handle("deepseek-usage", async (_event, params) => {
   } catch (e) {
     return { ok: false, error: String((e && e.message) || e) };
   }
+});
+
+// Make sure the (promoted) session cookies are written to disk before exit.
+app.on("will-quit", () => {
+  persistCookies().then(saveCookieBackup).catch(() => {});
 });
