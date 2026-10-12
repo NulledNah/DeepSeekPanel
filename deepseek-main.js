@@ -85,7 +85,7 @@ function attachCapture() {
   });
 }
 
-async function openLoginWindow() {
+async function runLoginWindow(silent) {
   attachCapture();
   loadToken();
   if (token && (await validate(token)).ok) return { ok: true, token };
@@ -94,6 +94,7 @@ async function openLoginWindow() {
     const win = new BrowserWindow({
       width: 520,
       height: 720,
+      show: false,
       title: "DeepSeek",
       autoHideMenuBar: true,
       backgroundColor: "#131010",
@@ -101,7 +102,15 @@ async function openLoginWindow() {
     });
     let settled = false;
     let poll = null;
-    const finish = (result) => { if (settled) return; settled = true; pendingLogin = null; if (poll) clearInterval(poll); resolve(result); };
+    let timer = null;
+    const finish = (result) => {
+      if (settled) return;
+      settled = true;
+      pendingLogin = null;
+      if (poll) clearInterval(poll);
+      if (timer) clearTimeout(timer);
+      resolve(result);
+    };
     const succeed = (value) => {
       saveToken(value);
       finish({ ok: true, token: value });
@@ -112,8 +121,13 @@ async function openLoginWindow() {
     };
     pendingLogin = succeed;
     win.on("closed", () => finish({ ok: !!loadToken(), token: loadToken() || null }));
-    win.webContents.on("did-fail-load", () => finish({ ok: !!loadToken(), token: loadToken() || null }));
+    // Only a main-frame failure counts; subresource errors (and ERR_ABORTED, -3)
+    // must be ignored, otherwise the flow would end before the token is caught.
+    win.webContents.on("did-fail-load", (_e, code, _desc, _url, isMainFrame) => {
+      if (isMainFrame && code !== -3) finish({ ok: !!loadToken(), token: loadToken() || null });
+    });
     win.loadURL(BASE + "/sign_in").catch(() => finish({ ok: false, token: null }));
+
     // The platform persists the session token in localStorage["userToken"]
     // (JSON: {"value":"<token>"}). Reading it is more reliable than sniffing
     // request headers, especially when the window opens already signed in.
@@ -126,7 +140,15 @@ async function openLoginWindow() {
         if (settled || typeof value !== "string" || value.length < 20 || value === token) return;
         validate(value).then((check) => { if (check.ok && !settled) succeed(value); });
       }).catch(() => {});
-    }, 1500);
+    }, 1200);
+
+    if (silent) {
+      // Try to reuse a persisted session without showing anything.
+      timer = setTimeout(() => { if (!settled) { if (!win.isDestroyed()) win.close(); finish({ ok: false, token: null }); } }, 4500);
+    } else {
+      // Only reveal the window if the session could not be restored automatically.
+      timer = setTimeout(() => { if (!settled && !win.isDestroyed()) win.show(); }, 1200);
+    }
   });
 }
 
@@ -160,7 +182,8 @@ ipcMain.handle("deepseek-status", async () => {
   return check.ok ? { ok: true, valid: true } : { ok: false, valid: false };
 });
 
-ipcMain.handle("deepseek-login", async () => openLoginWindow());
+ipcMain.handle("deepseek-login", async () => runLoginWindow(false));
+ipcMain.handle("deepseek-restore", async () => runLoginWindow(true));
 
 ipcMain.handle("deepseek-logout", async () => {
   clearToken();

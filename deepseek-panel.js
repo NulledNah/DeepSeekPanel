@@ -92,6 +92,7 @@
   function bridge() { return window.api || {}; }
   function dsStatus() { var b = bridge(); return b.deepseekStatus ? b.deepseekStatus() : Promise.resolve({ ok: false }); }
   function dsLogin() { var b = bridge(); return b.deepseekLogin ? b.deepseekLogin() : Promise.reject(new Error("bridge mancante")); }
+  function dsRestore() { var b = bridge(); return b.deepseekRestore ? b.deepseekRestore() : Promise.resolve({ ok: false }); }
   function dsLogout() { var b = bridge(); return b.deepseekLogout ? b.deepseekLogout() : Promise.resolve(); }
   function dsUsage(params) { var b = bridge(); return b.deepseekUsage ? b.deepseekUsage(params) : Promise.reject(new Error("bridge mancante")); }
 
@@ -214,6 +215,7 @@
     loading: false,
     loggedIn: false,
     confirmLogout: false,
+    restoreTried: false,
     summary: null,
     amount: null,
     cost: null,
@@ -339,8 +341,17 @@
     render();
     dsStatus().then(function (res) {
       state.status = res || {};
-      if (res && res.ok && res.valid) { state.loggedIn = true; loadUsage(); }
-      else { state.loggedIn = false; state.view = "login"; render(); }
+      if (res && res.ok && res.valid) { state.loggedIn = true; loadUsage(); return; }
+      state.loggedIn = false;
+      if (!state.restoreTried) {
+        state.restoreTried = true;
+        dsRestore().then(function (r) {
+          if (r && r.ok && r.token) loadUsage();
+          else { state.view = "login"; render(); }
+        }).catch(function () { state.view = "login"; render(); });
+      } else {
+        state.view = "login"; render();
+      }
     }).catch(function () { state.loggedIn = false; state.view = "login"; render(); });
   }
 

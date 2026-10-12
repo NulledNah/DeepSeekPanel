@@ -165,11 +165,12 @@ function patchIndexHtml(html) {
 
 function patchPreload(src) {
   // Drop any previously injected deepseek line so the patch stays idempotent.
-  src = src.split("\n").filter((line) => !/deepseek(SetToken|Login|Logout|Status|Usage)\s*:/.test(line)).join("\n");
+  src = src.split("\n").filter((line) => !/deepseek(SetToken|Login|Restore|Logout|Status|Usage)\s*:/.test(line)).join("\n");
   const needle = 'electron.contextBridge.exposeInMainWorld("api", api)';
   if (!src.includes(needle)) throw new Error("preload: punto di innesto non trovato");
   const inject =
     'Object.assign(api,{deepseekLogin:()=>electron.ipcRenderer.invoke("deepseek-login"),' +
+    'deepseekRestore:()=>electron.ipcRenderer.invoke("deepseek-restore"),' +
     'deepseekLogout:()=>electron.ipcRenderer.invoke("deepseek-logout"),' +
     'deepseekStatus:()=>electron.ipcRenderer.invoke("deepseek-status"),' +
     'deepseekUsage:(p)=>electron.ipcRenderer.invoke("deepseek-usage",p)});\n';
