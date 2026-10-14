@@ -368,7 +368,7 @@
     ".dsp-date{height:32px;padding:0 8px;border-radius:8px;border:1px solid var(--border-base,rgba(255,255,255,.16));background:transparent;color:var(--text-strong,#e8e8e8);color-scheme:inherit}",
     ".dsp-balance-row{display:flex;align-items:baseline;gap:8px}",
     ".dsp-balance-head{display:flex;align-items:center;justify-content:space-between;gap:8px}",
-    ".dsp-topup{height:24px;padding:0 10px;border-radius:7px;border:1px solid var(--border-base,rgba(255,255,255,.16));background:transparent;color:var(--text-strong,#e8e8e8);cursor:pointer;font-size:11px;font-weight:600}",
+    ".dsp-topup{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 10px;border-radius:7px;border:1px solid var(--border-base,rgba(255,255,255,.16));background:transparent;color:var(--text-strong,#e8e8e8);cursor:pointer;font-size:11px;font-weight:600}",
     ".dsp-topup:hover{background:var(--surface-base-hover,rgba(255,255,255,.08))}",
     ".dsp-big{font-size:28px;font-weight:700;letter-spacing:-.01em}",
     ".dsp-pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;border:1px solid transparent}",
@@ -1089,11 +1089,14 @@
       s.currency ? el("span", { class: "dsp-muted", style: "margin-left:auto", text: s.currency }) : null
     ]);
 
+    var topupBtn = el("button", { class: "dsp-topup", type: "button", on: { click: function () { openExternal(TOPUP_URL); } } });
+    topupBtn.appendChild(el("span", { text: t("topup") }));
+    topupBtn.appendChild(svgExternal());
     var summaryRow = el("div", { class: "dsp-row dsp-row-2", style: "margin-bottom:10px" }, [
       el("div", { class: "dsp-cardbox" }, [
         el("div", { class: "dsp-balance-head" }, [
           el("div", { class: "dsp-k", text: t("balance") }),
-          el("button", { class: "dsp-topup", type: "button", text: t("topup"), on: { click: function () { openExternal(TOPUP_URL); } } })
+          topupBtn
         ]),
         el("div", { class: "dsp-balance-row" }, [
           el("span", { class: "dsp-big", text: s.balance != null ? fmtAmount(s.balance, s.currency) : "-" })
