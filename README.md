@@ -14,6 +14,8 @@ Recommended release: **v1.0.10** (stable).
 
 - DeepSeek login in an integrated window; the session is captured automatically.
 - Balance, total cost, and period cost / API requests / tokens.
+- Top up button in the balance card: opens the DeepSeek top up page in the
+  browser; the balance is refreshed when the OpenCode window regains focus.
 - Daily cost or token chart (Cost / Token toggle).
 - Time range filter (today, yesterday, 7/30 days, this month, last month, custom)
   with a calendar range picker, plus an API key filter.

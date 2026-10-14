@@ -22,6 +22,7 @@
   var CARD_MAX_W = 690;
   var CARD_MIN_W = 360;
   var DASHBOARD_URL = "https://platform.deepseek.com/usage";
+  var TOPUP_URL = "https://platform.deepseek.com/top_up";
   // Replaced at patch time by apply.js with the content of the VERSION file.
   var PANEL_VERSION = "__PANEL_VERSION__";
 
@@ -57,6 +58,7 @@
       logout: "Logout",
       confirm_msg: "Do you really want to sign out of DeepSeek?",
       cancel: "Cancel",
+      topup: "Top up",
       close: "Close",
       apply: "Apply",
       err_data: "Could not load data.",
@@ -93,6 +95,7 @@
       logout: "Logout",
       confirm_msg: "Vuoi davvero uscire dall'account DeepSeek?",
       cancel: "Annulla",
+      topup: "Ricarica",
       close: "Chiudi",
       apply: "Applica",
       err_data: "Errore nel recupero dei dati.",
@@ -231,6 +234,10 @@
   function dsRestore() { var b = bridge(); return b.deepseekRestore ? b.deepseekRestore() : Promise.resolve({ ok: false }); }
   function dsLogout() { var b = bridge(); return b.deepseekLogout ? b.deepseekLogout() : Promise.resolve(); }
   function dsUsage(params) { var b = bridge(); return b.deepseekUsage ? b.deepseekUsage(params) : Promise.reject(new Error("bridge mancante")); }
+  function openExternal(url) {
+    if (window.api && typeof window.api.openLink === "function") window.api.openLink(url);
+    else window.open(url, "_blank");
+  }
 
   // ---- CSS (flat, no gradients/glow) ---------------------------------------
   var CSS = [
@@ -360,6 +367,9 @@
     "@keyframes dsp-spin{to{transform:rotate(360deg)}}",
     ".dsp-date{height:32px;padding:0 8px;border-radius:8px;border:1px solid var(--border-base,rgba(255,255,255,.16));background:transparent;color:var(--text-strong,#e8e8e8);color-scheme:inherit}",
     ".dsp-balance-row{display:flex;align-items:baseline;gap:8px}",
+    ".dsp-balance-head{display:flex;align-items:center;justify-content:space-between;gap:8px}",
+    ".dsp-topup{height:24px;padding:0 10px;border-radius:7px;border:1px solid var(--border-base,rgba(255,255,255,.16));background:transparent;color:var(--text-strong,#e8e8e8);cursor:pointer;font-size:11px;font-weight:600}",
+    ".dsp-topup:hover{background:var(--surface-base-hover,rgba(255,255,255,.08))}",
     ".dsp-big{font-size:28px;font-weight:700;letter-spacing:-.01em}",
     ".dsp-pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;border:1px solid transparent}",
     ".dsp-pill-ok{background:rgba(18,201,5,.14);color:#4fd23f}",
@@ -1081,7 +1091,10 @@
 
     var summaryRow = el("div", { class: "dsp-row dsp-row-2", style: "margin-bottom:10px" }, [
       el("div", { class: "dsp-cardbox" }, [
-        el("div", { class: "dsp-k", text: t("balance") }),
+        el("div", { class: "dsp-balance-head" }, [
+          el("div", { class: "dsp-k", text: t("balance") }),
+          el("button", { class: "dsp-topup", type: "button", text: t("topup"), on: { click: function () { openExternal(TOPUP_URL); } } })
+        ]),
         el("div", { class: "dsp-balance-row" }, [
           el("span", { class: "dsp-big", text: s.balance != null ? fmtAmount(s.balance, s.currency) : "-" })
         ])
@@ -1159,7 +1172,7 @@
       chartBody
     ]);
 
-    var dashBtn = el("button", { class: "dsp-ghost", type: "button", on: { click: function () { if (window.api && window.api.openLink) window.api.openLink(DASHBOARD_URL); else window.open(DASHBOARD_URL, "_blank"); } } });
+    var dashBtn = el("button", { class: "dsp-ghost", type: "button", on: { click: function () { openExternal(DASHBOARD_URL); } } });
     dashBtn.appendChild(el("span", { text: t("dashboard") }));
     dashBtn.appendChild(svgExternal());
     var foot = el("div", { class: "dsp-foot" }, [
@@ -1261,6 +1274,11 @@
       if (isOpen() && !card.contains(e.target) && !launcher.contains(e.target)) setOpen(false);
     }, true);
     window.addEventListener("resize", function () { if (isOpen()) positionCard(); });
+    // Refresh when the window regains focus (e.g. after topping up in the
+    // browser) if the shown data is not recent.
+    window.addEventListener("focus", function () {
+      if (state.loggedIn && !state.loading && state.view === "dashboard" && state.dataAt && (Date.now() - state.dataAt) > 30000) loadUsage(true);
+    });
   }
 
   window.__deepseekPanel = { open: function () { setOpen(true); }, close: function () { setOpen(false); }, reload: loadUsage, render: render, state: state };
