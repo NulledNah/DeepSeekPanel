@@ -4,3 +4,4 @@ node_modules/
 *.deepseek-backup
 *.deepseek-new
 *.deepseek-restore
+installa.bat
