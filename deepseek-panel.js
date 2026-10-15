@@ -59,6 +59,8 @@
       confirm_msg: "Do you really want to sign out of DeepSeek?",
       cancel: "Cancel",
       topup: "Top up",
+      granted: "Free credit",
+      granted_hint: "Used when available in place of the topped-up balance.",
       close: "Close",
       apply: "Apply",
       err_data: "Could not load data.",
@@ -96,6 +98,8 @@
       confirm_msg: "Vuoi davvero uscire dall'account DeepSeek?",
       cancel: "Annulla",
       topup: "Ricarica",
+      granted: "Credito gratuito",
+      granted_hint: "Viene utilizzato quando disponibile al posto del saldo ricaricato.",
       close: "Chiudi",
       apply: "Applica",
       err_data: "Errore nel recupero dei dati.",
@@ -370,6 +374,8 @@
     ".dsp-balance-head{display:flex;align-items:center;justify-content:space-between;gap:8px}",
     ".dsp-topup{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 10px;border-radius:7px;border:1px solid var(--border-base,rgba(255,255,255,.16));background:transparent;color:var(--text-strong,#e8e8e8);cursor:pointer;font-size:11px;font-weight:600}",
     ".dsp-topup:hover{background:var(--surface-base-hover,rgba(255,255,255,.08))}",
+    ".dsp-granted{display:inline-flex;align-items:center;margin-top:6px;color:var(--text-weak,#9a9a9a);font-size:11px;cursor:help;border-bottom:1px dotted var(--border-hover,rgba(255,255,255,.28));width:max-content}",
+    ".dsp-granted-v{color:var(--text-strong,#e8e8e8);font-weight:600;margin-left:2px}",
     ".dsp-big{font-size:28px;font-weight:700;letter-spacing:-.01em}",
     ".dsp-pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;border:1px solid transparent}",
     ".dsp-pill-ok{background:rgba(18,201,5,.14);color:#4fd23f}",
@@ -549,10 +555,12 @@
   function summaryValues() {
     var s = biz(state.summary) || {};
     var wallet = (s.normal_wallets || [])[0] || {};
+    var bonus = (s.bonus_wallets || [])[0] || {};
     var totalCost = (s.total_costs || [])[0] || {};
     return {
       balance: wallet.balance != null ? wallet.balance : null,
-      currency: wallet.currency || totalCost.currency || "USD",
+      granted: bonus.balance != null ? bonus.balance : null,
+      currency: wallet.currency || bonus.currency || totalCost.currency || "USD",
       totalCost: totalCost.amount != null ? totalCost.amount : null
     };
   }
@@ -610,8 +618,8 @@
 
   function balanceValue() {
     var s = summaryValues();
-    if (s.balance == null) return null;
-    var n = parseFloat(s.balance);
+    if (s.balance == null && s.granted == null) return null;
+    var n = (parseFloat(s.balance) || 0) + (parseFloat(s.granted) || 0);
     return isNaN(n) ? null : n;
   }
 
@@ -1100,7 +1108,11 @@
         ]),
         el("div", { class: "dsp-balance-row" }, [
           el("span", { class: "dsp-big", text: s.balance != null ? fmtAmount(s.balance, s.currency) : "-" })
-        ])
+        ]),
+        (s.granted != null && parseFloat(s.granted) > 0) ? el("div", { class: "dsp-granted", title: t("granted_hint") }, [
+          el("span", { text: t("granted") + ": " }),
+          el("span", { class: "dsp-granted-v", text: fmtAmount(s.granted, s.currency) })
+        ]) : null
       ]),
       el("div", { class: "dsp-cardbox" }, [
         el("div", { class: "dsp-k", text: t("total_cost") }),
