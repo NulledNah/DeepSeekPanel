@@ -8,7 +8,7 @@ It works by patching the packaged `app.asar` (append-only and reversible). Data
 comes from the DeepSeek Platform account session, captured automatically when you
 log in from the integrated window.
 
-Recommended release: **v1.0.11** (stable).
+Recommended release: **v1.0.12** (stable).
 
 ## Features
 
@@ -49,17 +49,28 @@ settings and help icons. Click it and log in.
 
 Other commands:
 
-    node apply.js verify    # check the patched app.asar
-    node apply.js status    # show install state
+    node apply.js verify        # check the patched app.asar
+    node apply.js status        # show install state
+    node apply.js remove        # remove only this addon (keeps other addons)
+    node apply.js restore-all   # restore the original app.asar (all addons)
 
-## Restore
+`restore` is kept as an alias of `restore-all`.
+
+## Remove / Restore
 
 Close OpenCode first.
 
-    node apply.js restore
+    node apply.js remove        # remove DeepSeek only
+    node apply.js restore-all   # restore the original app.asar (all addons)
 
-Restores the original `app.asar` from the backup created during install
-(`resources/app.asar.deepseek-backup`).
+`remove` neutralises this addon's module and drops its preload and index.html
+hooks without touching other addons. `restore-all` copies the pristine shared
+backup (`resources/app.asar.ocaddons-backup`) back over `app.asar`, removing every
+addon at once.
+
+Addons share a single `main` entry (`out/main/oc-addons.js`) that loads the base
+app and then each installed addon, so they can be installed and removed
+independently and in any order.
 
 ## Notes
 
