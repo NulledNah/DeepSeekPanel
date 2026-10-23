@@ -313,7 +313,7 @@ function install(args) {
   fs.renameSync(tmp, asar);
 
   console.log("Patch applicata: " + asar);
-  console.log("Riavvia OpenCode. Il pannello DeepSeek e' in basso a sinistra.");
+  console.log("Riavvia OpenCode. Il pulsante DeepSeek e' nella barra del prompt, dopo modello/effort.");
   console.log("Per rimuoverla: node apply.js remove (solo DeepSeek) o restore-all (tutti gli addon).");
 }
 
