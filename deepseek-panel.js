@@ -245,7 +245,7 @@
 
   // ---- CSS (flat, no gradients/glow) ---------------------------------------
   var CSS = [
-    "#deepseek-panel-card,.dsp-rail-btn,.dsp-float-btn{--dsp-accent:#4d6bfe;--dsp-accent-soft:rgba(77,107,254,.14)}",
+    "#deepseek-panel-card,.dsp-rail-btn,.dsp-float-btn,.dsp-slot-btn{--dsp-accent:#4d6bfe;--dsp-accent-soft:rgba(77,107,254,.14)}",
     "#deepseek-panel-card *{box-sizing:border-box}",
     "#deepseek-panel-card button{font:inherit;color:inherit}",
     ".dsp-rail-btn{position:relative;width:32px;height:32px;padding:0;border:1px solid transparent;border-radius:9px;background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-weak,#8f8f8f);transition:background .14s ease,color .14s ease}",
@@ -254,6 +254,11 @@
     ".dsp-rail-btn .dsp-mark{width:18px;height:18px;display:block;flex:none}",
     ".dsp-float-btn{position:fixed;left:10px;bottom:10px;z-index:2147483600;width:34px;height:34px;display:flex;align-items:center;justify-content:center;border-radius:9px;border:1px solid var(--border-base,rgba(255,255,255,.14));background:var(--background-strong,#1b1b1b);cursor:pointer;color:var(--text-strong,#e8e8e8);box-shadow:0 1px 2px rgba(0,0,0,.25)}",
     ".dsp-float-btn .dsp-mark{width:18px;height:18px;color:var(--dsp-accent)}",
+".dsp-slot-btn{position:relative;width:28px;height:28px;padding:0;border:1px solid transparent;border-radius:6px;background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--v2-icon-icon-muted,var(--text-weak,#9a9a9a));flex:none}",
+".dsp-slot-btn:hover{background:var(--surface-base-hover,rgba(255,255,255,.07));color:var(--text-strong,#e8e8e8)}",
+".dsp-slot-btn.dsp-active{color:var(--dsp-accent);background:var(--dsp-accent-soft)}",
+".dsp-slot-btn .dsp-mark{width:16px;height:16px;display:block;flex:none}",
+".dsp-plugin-slot{margin-left:auto;margin-right:auto;display:flex;align-items:center;gap:4px;flex:none}",
     ".dsp-title,.dsp-dot{display:none}",
     ".dsp-card{position:fixed;z-index:2147483600;display:none;width:" + CARD_MIN_W + "px;max-height:calc(100vh - 120px);border-radius:12px;border:1px solid var(--border-base,rgba(255,255,255,.14));background:var(--background-strong,#1b1b1b);box-shadow:0 2px 4px rgba(0,0,0,.2),0 16px 40px -16px rgba(0,0,0,.6);font-family:var(--font-sans,ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif);font-size:13px;line-height:1.45;color:var(--text-strong,#e8e8e8);overflow:hidden;flex-direction:column}",
     ".dsp-card.dsp-open{display:flex}",
@@ -1250,6 +1255,42 @@
     }
     return fallback;
   }
+  // Composer slot: the prompt bar has a controls row; plugin buttons are
+  // appended after the model/effort controls. The periodic re-mount puts the
+  // button back if a re-render drops it.
+  function composerRow() {
+    var forms = document.querySelectorAll("form");
+    for (var i = forms.length - 1; i >= 0; i--) {
+      if (String(forms[i].className).indexOf("prompt-input") < 0) continue;
+      var rows = forms[i].querySelectorAll("div.flex.h-11");
+      for (var j = rows.length - 1; j >= 0; j--) {
+        if (rows[j].querySelector("button")) return rows[j];
+      }
+    }
+    return null;
+  }
+  function pluginSlot(group) {
+    var slot = document.getElementById("dsp-plugin-slot");
+    if (!slot) slot = el("div", { id: "dsp-plugin-slot", class: "dsp-plugin-slot" });
+    if (slot.parentNode !== group || group.lastElementChild !== slot) group.appendChild(slot);
+    return slot;
+  }
+  function mountComposer() {
+    var row = composerRow();
+    if (!row) return false;
+    // Plugin buttons go after the model/effort controls, centered in the free
+    // space before the send button (the green slot).
+    var group = null, kids = row.children;
+    for (var i = 0; i < kids.length; i++) {
+      if (/flex-1/.test(kids[i].className) && kids[i].querySelector("button")) { group = kids[i]; break; }
+    }
+    if (!group) group = row;
+    launcher.classList.remove("dsp-rail-btn", "dsp-float-btn");
+    launcher.classList.add("dsp-slot-btn");
+    var slot = pluginSlot(group);
+    if (launcher.parentNode !== slot) slot.appendChild(launcher);
+    return true;
+  }
   function inRail() {
     var p = launcher.parentNode;
     if (!p || p === document.body) return false;
@@ -1257,15 +1298,19 @@
     return r.left < 12 && r.width <= 92 && r.height > 200;
   }
   function mountLauncher() {
-    if (inRail()) return true;
+    if (mountComposer()) return true;
+    launcher.classList.remove("dsp-slot-btn");
+    if (inRail()) { launcher.classList.remove("dsp-float-btn"); launcher.classList.add("dsp-rail-btn"); return true; }
     var rail = findRail();
     if (rail) {
+      launcher.classList.remove("dsp-float-btn");
+      launcher.classList.add("dsp-rail-btn");
       var cluster = bottomCluster(rail);
       if (cluster) { if (launcher.parentNode !== cluster || cluster.firstChild !== launcher) cluster.insertBefore(launcher, cluster.firstChild); }
       else if (launcher.parentNode !== rail || rail.lastElementChild !== launcher) rail.appendChild(launcher);
-      launcher.classList.remove("dsp-float-btn");
       return true;
     }
+    launcher.classList.remove("dsp-rail-btn");
     if (launcher.parentNode !== document.body) { launcher.classList.add("dsp-float-btn"); document.body.appendChild(launcher); }
     return false;
   }

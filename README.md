@@ -8,7 +8,7 @@ It works by patching the packaged `app.asar` (append-only and reversible). Data
 comes from the DeepSeek Platform account session, captured automatically when you
 log in from the integrated window.
 
-Recommended release: **v1.0.12** (stable).
+Recommended release: **v1.0.13** (stable).
 
 ## Features
 
@@ -37,6 +37,17 @@ Recommended release: **v1.0.12** (stable).
 - Node.js 18 or newer (to run the installer).
 - A DeepSeek Platform account.
 
+## Compatibility
+
+- Current OpenCode desktop UI: use this release (v1.0.13). The button is placed
+  in the prompt bar, after the model / effort controls.
+- Older OpenCode desktop UI (bottom-left rail with Settings / Help): use the
+  previous release, **v1.0.12**, where the button sits above the settings and
+  help icons.
+
+The installer and the shared addon loader are the same as v1.0.12, so installing
+over it is fine.
+
 ## Apply the patch
 
 Close OpenCode first.
@@ -44,8 +55,9 @@ Close OpenCode first.
     cd DeepSeekPanel
     node apply.js install
 
-Start OpenCode. The DeepSeek button appears in the bottom-left rail, above the
-settings and help icons. Click it and log in.
+Start OpenCode. The DeepSeek button appears in the prompt bar at the bottom of
+the chat, right after the model / effort controls (centered in the free space
+before the send button). Click it and log in.
 
 Other commands:
 
@@ -90,7 +102,7 @@ independently and in any order.
 
 ## Files
 
-- `apply.js` - installer (install / restore / status / verify).
+- `apply.js` - installer (install / remove / restore-all / status / verify).
 - `deepseek-main.js` - main-process module (login window, token capture, usage
   proxy).
 - `deepseek-panel.js` - renderer panel UI.
