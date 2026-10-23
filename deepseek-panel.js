@@ -272,7 +272,7 @@
     ".dsp-ico-ext{width:13px;height:13px;opacity:.85}",
     ".dsp-spin{animation:dsp-rotate .8s linear infinite}",
     "@keyframes dsp-rotate{to{transform:rotate(360deg)}}",
-    ".dsp-status-dot{position:absolute;top:-1px;right:-1px;width:9px;height:9px;border-radius:50%;display:none;z-index:2;box-shadow:0 0 0 1.5px var(--background-base,#121212)}",
+    ".dsp-status-dot{position:absolute;top:-1px;right:-1px;width:7px;height:7px;border-radius:50%;display:none;z-index:2;box-shadow:0 0 0 1.5px var(--background-base,#121212)}",
     ".dsp-confirm-overlay{position:absolute;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5)}",
     ".dsp-confirm{width:min(300px,86%);border:1px solid var(--border-base,rgba(255,255,255,.16));border-radius:10px;background:var(--background-strong,#1b1b1b);padding:14px}",
     ".dsp-confirm-title{font-weight:600;margin-bottom:4px}",
