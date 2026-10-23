@@ -8,7 +8,7 @@ It works by patching the packaged `app.asar` (append-only and reversible). Data
 comes from the DeepSeek Platform account session, captured automatically when you
 log in from the integrated window.
 
-Recommended release: **v1.0.13** (stable).
+Recommended release: **v1.1.0** (stable).
 
 ## Features
 
@@ -39,7 +39,7 @@ Recommended release: **v1.0.13** (stable).
 
 ## Compatibility
 
-- Current OpenCode desktop UI: use this release (v1.0.13). The button is placed
+- Current OpenCode desktop UI: use this release (v1.1.0). The button is placed
   in the prompt bar, after the model / effort controls.
 - Older OpenCode desktop UI (bottom-left rail with Settings / Help): use the
   previous release, **v1.0.12**, where the button sits above the settings and
