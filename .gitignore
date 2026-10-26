@@ -5,3 +5,4 @@ node_modules/
 *.deepseek-new
 *.deepseek-restore
 whatsNew.md
+AGENTS.md
