@@ -232,14 +232,15 @@
   }
 
   // ---- API bridge (added to preload by apply.js) --------------------------
-  function bridge() { return window.api || {}; }
+  function bridge() { return window.deepseekApi || window.api || {}; }
   function dsStatus() { var b = bridge(); return b.deepseekStatus ? b.deepseekStatus() : Promise.resolve({ ok: false }); }
   function dsLogin() { var b = bridge(); return b.deepseekLogin ? b.deepseekLogin() : Promise.reject(new Error("bridge mancante")); }
   function dsRestore() { var b = bridge(); return b.deepseekRestore ? b.deepseekRestore() : Promise.resolve({ ok: false }); }
   function dsLogout() { var b = bridge(); return b.deepseekLogout ? b.deepseekLogout() : Promise.resolve(); }
   function dsUsage(params) { var b = bridge(); return b.deepseekUsage ? b.deepseekUsage(params) : Promise.reject(new Error("bridge mancante")); }
   function openExternal(url) {
-    if (window.api && typeof window.api.openLink === "function") window.api.openLink(url);
+    if (window.deepseekApi && typeof window.deepseekApi.openLink === "function") window.deepseekApi.openLink(url);
+    else if (window.api && typeof window.api.openLink === "function") window.api.openLink(url);
     else window.open(url, "_blank");
   }
 
@@ -1259,6 +1260,10 @@
   // appended after the model/effort controls. The periodic re-mount puts the
   // button back if a re-render drops it.
   function composerRow() {
+    // 2.1.4 keeps the model/effort controls in [data-slot=composer-controls]; older
+    // builds used a form.prompt-input with a flex-1 cell.
+    var controls = document.querySelectorAll("[data-component=composer] [data-slot=composer-controls] > div");
+    if (controls.length) return controls[controls.length - 1];
     var forms = document.querySelectorAll("form");
     for (var i = forms.length - 1; i >= 0; i--) {
       if (String(forms[i].className).indexOf("prompt-input") < 0) continue;
